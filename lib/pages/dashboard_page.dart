@@ -3,6 +3,7 @@ import '../widgets/healix_app_bar.dart';
 import 'doctors_list_page.dart';
 import 'ai_agent_page.dart';
 import 'history_page.dart';
+import 'vitals_page.dart';
 import '../store/healix_store.dart';
 import '../utils/page_transitions.dart';
 import '../widgets/healix_background.dart';
@@ -74,7 +75,7 @@ class DashboardPage extends StatelessWidget {
               },
             ),
             const SizedBox(height: 24),
-            _buildHealthPulseBanner(),
+            _buildHealthPulseBanner(context),
             const SizedBox(height: 40),
             ],
           ),
@@ -365,44 +366,49 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  Widget _buildHealthPulseBanner() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0088CC), Color(0xFF006688)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
+  Widget _buildHealthPulseBanner(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(context, SlideRightRoute(page: const VitalsPage()));
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0088CC), Color(0xFF006688)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
         ),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Stack(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Healix Health Pulse',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+        child: Stack(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Healix Health Pulse',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Your vitals are looking optimal today.',
-                style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 15),
-              ),
-            ],
-          ),
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Icon(Icons.bar_chart, color: Colors.white.withOpacity(0.2), size: 60),
-          ),
-        ],
+                const SizedBox(height: 8),
+                Text(
+                  'Your vitals are looking optimal today.',
+                  style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 15),
+                ),
+              ],
+            ),
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Icon(Icons.bar_chart, color: Colors.white.withOpacity(0.2), size: 60),
+            ),
+          ],
+        ),
       ),
     );
   }
