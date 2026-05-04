@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Clinic_Project.Dtos.Record;
 using Clinic_Project.Helpers;
 using Clinic_Project.Models;
@@ -97,6 +97,18 @@ namespace Clinic_Project.Services.Implementations
 
             var recordReadDto = _mapper.Map<RecordReadDto>(record);
             return Result<RecordReadDto>.Ok(recordReadDto);
+        }
+
+        public async Task<Result<IEnumerable<RecordReadDto>?>> GetByPatientIdAsync(int patientId)
+        {
+            var records = await _unitOfWork.Records.FindAsync(r => r.PatientId == patientId);
+            if (records == null || !records.Any())
+            {
+                return Result<IEnumerable<RecordReadDto>?>.Ok(new List<RecordReadDto>());
+            }
+
+            var recordsReadDto = _mapper.Map<IEnumerable<RecordReadDto>>(records);
+            return Result<IEnumerable<RecordReadDto>?>.Ok(recordsReadDto);
         }
 
         public async Task<Result<RecordReadDto>?> DeleteAsync(int id)

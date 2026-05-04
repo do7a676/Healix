@@ -1,52 +1,77 @@
 services:
-  #  Database Service (SQL Server 2022)
+  # ---------------------------------------------------------------------------
+  # Database Service: SQL Server 2022
+  # ---------------------------------------------------------------------------
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: sqlserver_db
+    container_name: clinic_db
+    restart: always
     environment:
       - ACCEPT_EULA=Y
-      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD:-Clinic_Secret_Pass_2024!}
+      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD}
     ports:
-      - "1433:1433"
+      - "${SQL_SERVER_PORT}:1433"
+    volumes:
+      - sql_data:/var/opt/mssql
     healthcheck:
-      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "Clinic_Secret_Pass_2024!", "-C", "-Q", "SELECT 1"]
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "${MSSQL_SA_PASSWORD}", "-C", "-Q", "SELECT 1"]
       interval: 10s
       timeout: 5s
       retries: 10
-    restart: always
+    networks:
+      - clinic_network
 
-  # AI Service (FastAPI + AI Models)
+  # ---------------------------------------------------------------------------
+  # AI Service: FastAPI + AI Models
+  # ---------------------------------------------------------------------------
   clinicai:
     build:
       context: ./ClinicAI
       dockerfile: Dockerfile
-    container_name: clinicai_service
-    ports:
-      - "8000:8000"
-    environment:
-      - DEBUG=False
-      - APP_NAME=ClinicAI-Production
-      - API_KEY=${API_KEY:-clinic_secret_key_2024}
-    volumes:
-      - ./ClinicAI/models:/app/models # Mount models directory
+    container_name: clinic_ai_service
     restart: always
+    ports:
+      - "${FASTAPI_PORT}:8000"
+    environment:
+      - DEBUG=${DEBUG_MODE}
+      - APP_NAME=ClinicAI-Production
+      - API_KEY=${AI_API_KEY}
+    volumes:
+      - ./ClinicAI/models:/app/models
+    networks:
+      - clinic_network
 
-  # Backend Service (.NET 8.0)
+  # ---------------------------------------------------------------------------
+  # Backend Service: ASP.NET Core 8.0 API
+  # ---------------------------------------------------------------------------
   clinic-backend:
     build:
       context: "./Clinic Project"
       dockerfile: Dockerfile
-    container_name: clinic_backend_service
+    container_name: clinic_api_service
+    restart: always
     ports:
-      - "5001:8080"
+      - "${BACKEND_PORT}:8080" # Maps external 5001 to internal 8080 (ASP.NET 8 default)
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=ClinicApp;User Id=sa;Password=Clinic_Secret_Pass_2024!;TrustServerCertificate=True;
-      - AIService__BaseUrl=http://clinicai:8000
-      - AIService__ApiKey=clinic_secret_key_2024
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+      - AIService__BaseUrl=${AI_SERVICE_BASE_URL}
+      - AIService__ApiKey=${AI_API_KEY}
+      - JWT__SecretKey=${JWT_SECRET_KEY}
+      - JWT__Issuer=${JWT_ISSUER}
+      - JWT__Audience=${JWT_AUDIENCE}
     depends_on:
       sqlserver:
-        condition: service_healthy # Wait for database to be fully ready
+        condition: service_healthy
       clinicai:
         condition: service_started
-    restart: always
+    networks:
+      - clinic_network
+
+networks:
+  clinic_network:
+    driver: bridge
+
+volumes:
+  sql_data:
+    driver: local

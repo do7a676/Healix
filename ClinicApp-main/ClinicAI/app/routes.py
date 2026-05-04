@@ -46,13 +46,10 @@ async def health(request: Request) -> HealthResponse:
     summary="Disease prediction",
     tags=["Prediction"],
 )
-def predict(body: PredictionRequest, request: Request) -> PredictionResponse:
-    """
-    Predict the probability of **diabetes**, **heart disease**, or **kidney disease**.
-
-    The `data` object must contain the feature keys for the selected disease
-    (see the request examples and `/docs` for full field lists).
-    """
+async def predict(body: PredictionRequest, request: Request) -> PredictionResponse:
+    # NEW: Log raw request body for debugging
+    logger.info("Raw request body: %s", body.dict())
+    
     disease = body.disease.value
     registry = request.app.state.registry
 

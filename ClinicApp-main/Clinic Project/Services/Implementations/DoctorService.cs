@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Clinic_Project.Dtos.Doctor;
 using Clinic_Project.Helpers;
 using Clinic_Project.Models;
@@ -20,7 +20,10 @@ namespace Clinic_Project.Services.Implementations
         public async Task<Result<IEnumerable<DoctorReadDto>?>> GetAllAsync()
         {
             var doctors = (await _unitOfWork.Doctors.GetAllAsync())!.ToList();
-            if (!doctors.Any()) return Result<IEnumerable<DoctorReadDto>?>.Fail("No Doctors!");
+            if (!doctors.Any()) 
+            {
+                return Result<IEnumerable<DoctorReadDto>?>.Ok(new List<DoctorReadDto>());
+            }
 
             var readDtoList = _mapper.Map<IEnumerable<DoctorReadDto>>(doctors);
             return Result<IEnumerable<DoctorReadDto>?>.Ok(readDtoList);

@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../store/healix_store.dart';
+import '../services/patient_service.dart';
 
 class ScheduleAppointmentPage extends StatefulWidget {
   final String doctorName;
-  const ScheduleAppointmentPage({super.key, this.doctorName = 'Dr. Julian Thorne'});
+  final int doctorId;
+  const ScheduleAppointmentPage({
+    super.key, 
+    this.doctorName = 'Dr. Julian Thorne',
+    required this.doctorId,
+  });
 
   @override
   State<ScheduleAppointmentPage> createState() => _ScheduleAppointmentPageState();
@@ -51,7 +57,7 @@ class _ScheduleAppointmentPageState extends State<ScheduleAppointmentPage> {
     return TimeOfDay(hour: hour, minute: minute);
   }
 
-  void _confirmBooking() {
+  Future<void> _confirmBooking() async {
     final t = _parseTime(_selectedTimeSlot);
     final appointmentStart = DateTime(
       _selectedDay.year, _selectedDay.month, _selectedDay.day,
@@ -60,14 +66,39 @@ class _ScheduleAppointmentPageState extends State<ScheduleAppointmentPage> {
     final appointmentEnd = appointmentStart.add(const Duration(minutes: 30));
     final dateStr = _formatDate(_selectedDay);
 
-    healixStore.setAppointment(widget.doctorName, dateStr, _selectedTimeSlot);
+    final pIdStr = healixStore.patientId.value;
+    if (pIdStr == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: Patient profile not found. Please log in again.'), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
 
-    // Show confirmation dialog with calendar option
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _buildConfirmationDialog(appointmentStart, appointmentEnd, dateStr),
+    final success = await patientService.createAppointment(
+      doctorId: widget.doctorId,
+      patientId: int.parse(pIdStr),
+      appointmentDate: appointmentStart,
+      reason: 'General Consultation',
     );
+
+    if (success) {
+      healixStore.setAppointment(widget.doctorName, dateStr, _selectedTimeSlot);
+
+      // Show confirmation dialog with calendar option
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => _buildConfirmationDialog(appointmentStart, appointmentEnd, dateStr),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to book appointment. Please try again.'), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
   }
 
   String _formatDate(DateTime d) {

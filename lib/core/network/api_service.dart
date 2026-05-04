@@ -3,17 +3,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   late final Dio _dio;
+  static final ApiService _instance = ApiService._internal();
 
-  // Use http://localhost:5001/api for Web, http://10.0.2.2:5001/api for Android Emulator
+  factory ApiService() => _instance;
+
   static const String baseUrl = 'http://localhost:5001/api';
 
-  ApiService() {
+  ApiService._internal() {
     _dio = Dio(BaseOptions(
       baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 15),
       headers: {'Content-Type': 'application/json'},
     ));
+
+    _dio.interceptors.add(LogInterceptor(requestBody: true, responseBody: true));
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
@@ -24,8 +28,11 @@ class ApiService {
         }
         return handler.next(options);
       },
-      onError: (DioException e, handler) {
-        // You can handle global errors here (e.g. 401 logout)
+      onError: (DioException e, handler) async {
+        if (e.response?.statusCode == 401) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.clear();
+        }
         return handler.next(e);
       },
     ));
@@ -69,6 +76,10 @@ class ApiService {
       if (data is Map) {
         if (data.containsKey('message')) return data['message'];
         if (data.containsKey('title')) return data['title'];
+        if (data.containsKey('errors')) {
+          final errors = data['errors'];
+          if (errors is Map) return errors.values.first.toString();
+        }
       }
       return data.toString();
     }

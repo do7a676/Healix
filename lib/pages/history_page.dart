@@ -3,8 +3,29 @@ import '../widgets/healix_app_bar.dart';
 import '../store/healix_store.dart';
 import 'package:image_picker/image_picker.dart';
 
-class HistoryPage extends StatelessWidget {
+import '../services/patient_service.dart';
+
+class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
+
+  @override
+  State<HistoryPage> createState() => _HistoryPageState();
+}
+
+class _HistoryPageState extends State<HistoryPage> {
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    final records = await patientService.getMedicalRecords();
+    healixStore.historyRecords.value = records;
+    if (mounted) setState(() => _isLoading = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,51 +40,57 @@ class HistoryPage extends StatelessWidget {
         icon: const Icon(Icons.upload_file, color: Colors.white),
         label: const Text('Upload Record', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Text(
-              'Medical History',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
+      body: RefreshIndicator(
+        onRefresh: _loadHistory,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Text(
+                'Medical History',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                ),
               ),
             ),
-          ),
-          Expanded(
-            child: ValueListenableBuilder<List<Map<String, dynamic>>>(
-              valueListenable: healixStore.historyRecords,
-              builder: (context, records, child) {
-                if (records.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.history_toggle_off, size: 64, color: isDark ? Colors.white24 : Colors.black12),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No history records found.',
-                          style: TextStyle(color: isDark ? Colors.white54 : Colors.black38, fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: records.length,
-                  itemBuilder: (context, index) {
-                    final record = records[index];
-                    return _buildHistoryCard(context, record, isDark);
-                  },
-                );
-              },
+            Expanded(
+              child: _isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : ValueListenableBuilder<List<Map<String, dynamic>>>(
+                    valueListenable: healixStore.historyRecords,
+                    builder: (context, records, child) {
+                      if (records.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.history_toggle_off, size: 64, color: isDark ? Colors.white24 : Colors.black12),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No history records found.',
+                                style: TextStyle(color: isDark ? Colors.white54 : Colors.black38, fontSize: 16),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      return ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        itemCount: records.length,
+                        itemBuilder: (context, index) {
+                          final record = records[index];
+                          return _buildHistoryCard(context, record, isDark);
+                        },
+                      );
+                    },
+                  ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

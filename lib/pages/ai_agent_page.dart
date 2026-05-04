@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/healix_app_bar.dart';
 import '../store/healix_store.dart';
+import '../services/ai_service.dart';
 
 class AiAgentPage extends StatefulWidget {
   const AiAgentPage({super.key});
@@ -16,8 +17,10 @@ class _AiAgentPageState extends State<AiAgentPage> {
   Color get textColor => isDark ? Colors.white : const Color(0xFF0F172A);
   Color get subTextColor => isDark ? Colors.grey.shade400 : const Color(0xFF64748B);
   Color get borderColor => isDark ? Colors.white10 : const Color(0xFFE2E8F0);
-  int _currentStep = 0; // 0: Selection, 1: Inputs, 2: Results
-  String _selectedDisease = '';
+  
+  int _currentStep = 0;
+  String _selectedDisease = 'Diabetes';
+  Map<String, dynamic>? _analysisResult;
 
   // Input state
   final Map<String, dynamic> _inputs = {};
@@ -25,27 +28,95 @@ class _AiAgentPageState extends State<AiAgentPage> {
   double _riskScore = 0.0;
   bool _isHealthy = true;
 
+  // Defaults for each disease to satisfy FastAPI's strict validation
+  static const Map<String, dynamic> _diabetesDefaults = {
+    "HbA1c_level": 5.7, "blood_glucose_level": 100, "age": 45, "bmi": 25.0,
+    "smoking_history": "never", "hypertension": 0, "gender": "Male", "heart_disease": 0
+  };
+
+  static const Map<String, dynamic> _kidneyDefaults = {
+    "age": 48.0, "bp": 80.0, "sg": 1.020, "al": 0.0, "su": 0.0,
+    "rbc": "normal", "pc": "normal", "pcc": "notpresent", "ba": "notpresent",
+    "bgr": 121.0, "bu": 36.0, "sc": 1.2, "sod": 137.0, "pot": 4.0, "hemo": 15.4,
+    "pcv": 44.0, "wc": 7800.0, "rc": 5.2, "htn": "no", "dm": "no", "cad": "no",
+    "appet": "good", "pe": "no", "ane": "no"
+  };
+
+  static const Map<String, dynamic> _heartDefaults = {
+    "State": "California", "Sex": "Male", "GeneralHealth": "Good", "PhysicalHealthDays": 0, "MentalHealthDays": 0,
+    "LastCheckupTime": "Within past year", "PhysicalActivities": "Yes", "SleepHours": 7, "RemovedTeeth": "None of them",
+    "HadAngina": "No", "HadStroke": "No", "HadAsthma": "No", "HadSkinCancer": "No", "HadCOPD": "No",
+    "HadDepressiveDisorder": "No", "HadKidneyDisease": "No", "HadArthritis": "No", "HadDiabetes": "No",
+    "DeafOrHardOfHearing": "No", "BlindOrVisionDifficulty": "No", "DifficultyConcentrating": "No",
+    "DifficultyWalking": "No", "DifficultyDressingBathing": "No", "DifficultyErrands": "No",
+    "SmokerStatus": "Never smoked", "ECigaretteUsage": "Not at all", "ChestScan": "No",
+    "RaceEthnicityCategory": "White only, Non-Hispanic", "AgeCategory": "Age 40 to 44",
+    "HeightInMeters": 1.75, "WeightInKilograms": 75.0, "BMI": 24.5, "AlcoholDrinkers": "No",
+    "HIVTesting": "No", "FluVaxLast12": "No", "PneumoVaxEver": "No", "TetanusLast10Tdap": "Yes, received Tdap",
+    "HighRiskLastYear": "No", "CovidPos": "No"
+  };
+
   final Map<String, Map<String, String>> _modelMetrics = {
     'Diabetes': {'Accuracy': '92.4%', 'Precision': '91.2%', 'Recall': '89.5%', 'F1-Score': '90.3%'},
     'Heart Disease': {'Accuracy': '94.1%', 'Precision': '93.5%', 'Recall': '92.8%', 'F1-Score': '93.1%'},
     'Kidney Disease': {'Accuracy': '98.2%', 'Precision': '97.9%', 'Recall': '98.5%', 'F1-Score': '98.2%'},
   };
 
+  bool _isAnalyzing = false;
+
   void _onDiseaseSelect(String disease) {
     setState(() {
       _selectedDisease = disease;
       _currentStep = 1;
       _inputs.clear();
-      // Initialize with defaults
+      // Initialize with defaults if needed
     });
   }
 
-  void _analyzeResults() {
-    setState(() {
-      _riskScore = (30 + (DateTime.now().millisecond % 65)).toDouble();
-      _isHealthy = _riskScore < 50;
-      _currentStep = 2;
-    });
+  Future<void> _analyzeResults() async {
+    setState(() => _isAnalyzing = true);
+    
+    try {
+      // Map disease name to backend expected type
+      String diseaseType = _selectedDisease.toLowerCase().replaceAll(' ', '_');
+      if (diseaseType == 'diabetes') diseaseType = 'diabetes';
+      if (diseaseType == 'heart_disease') diseaseType = 'heart';
+      if (diseaseType == 'kidney_disease') diseaseType = 'kidney';
+
+      // Merge user inputs with defaults
+      Map<String, dynamic> finalPayload = {};
+      if (diseaseType == 'diabetes') finalPayload = {..._diabetesDefaults, ..._inputs};
+      if (diseaseType == 'kidney') finalPayload = {..._kidneyDefaults, ..._inputs};
+      if (diseaseType == 'heart') finalPayload = {..._heartDefaults, ..._inputs};
+
+      final result = await aiService.predict(
+        diseaseType: diseaseType,
+        features: finalPayload,
+      );
+
+      if (result != null) {
+        setState(() {
+          // Response format: { "prediction": 0/1, "probability": 0.XX, "risk_level": "..." }
+          _riskScore = ((result['probability'] ?? 0.0) * 100).toDouble();
+          _isHealthy = (result['prediction'] == 0);
+          _currentStep = 2;
+        });
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('AI service error. Please try again.'), backgroundColor: Colors.redAccent),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.redAccent),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isAnalyzing = false);
+    }
   }
 
   String _getRiskLabel(double score) {
@@ -194,9 +265,9 @@ class _AiAgentPageState extends State<AiAgentPage> {
       _buildDropdown('General Health', 'GeneralHealth', ['Excellent', 'Very good', 'Good', 'Fair', 'Poor']),
       _buildToggle('Had Arthritis', 'HadArthritis'),
       _buildToggle('Pneumonia Vaccine Ever', 'PneumoVaxEver'),
-      _buildDropdown('Removed Teeth', 'RemovedTeeth', ['None', '1 to 5', '6 or more', 'All']),
-      _buildDropdown('Age Category', 'AgeCategory', ['18-24', '25-29', '30-34', '35-39', '40-44', '45-49', '50-54', '55-59', '60-64', '65-69', '70-74', '75-79', '80+']),
-      _buildDropdown('Smoker Status', 'SmokerStatus', ['Never smoked', 'Former smoker', 'Current daily', 'Current sometimes']),
+      _buildDropdown('Removed Teeth', 'RemovedTeeth', ['None of them', '1 to 5', '6 or more but not all', 'All']),
+      _buildDropdown('Age Category', 'AgeCategory', ['Age 18 to 24', 'Age 25 to 29', 'Age 30 to 34', 'Age 35 to 39', 'Age 40 to 44', 'Age 45 to 49', 'Age 50 to 54', 'Age 55 to 59', 'Age 60 to 64', 'Age 65 to 69', 'Age 70 to 74', 'Age 75 to 79', 'Age 80 or older']),
+      _buildDropdown('Smoker Status', 'SmokerStatus', ['Never smoked', 'Former smoker', 'Current smoker - now smokes every day', 'Current smoker - now smokes some days']),
       _buildTextField('BMI (Body Mass Index)', 'BMI', 'Normal: 18.5–24.9'),
       _buildToggle('Kidney Disease', 'HadKidneyDisease'),
       _buildToggle('COPD (Lung Disease)', 'HadCOPD'),
@@ -234,15 +305,24 @@ class _AiAgentPageState extends State<AiAgentPage> {
 
   List<Widget> _buildDiabetesInputs() {
     return [
-      _buildTextField('Glucose', 'glucose', 'Normal: 70-99'),
-      _buildTextField('Blood Pressure', 'bp', 'Normal: < 120'),
-      _buildTextField('BMI (Body Mass Index)', 'bmi', 'Normal: 18.5-24.9'),
+      _buildTextField('HbA1c Level', 'HbA1c_level', 'Normal: 4.0-5.6'),
+      _buildTextField('Blood Glucose Level', 'blood_glucose_level', 'Normal: 70-99'),
       _buildTextField('Age', 'age', ''),
+      _buildTextField('BMI (Body Mass Index)', 'bmi', 'Normal: 18.5-24.9'),
+      _buildDropdown('Smoking History', 'smoking_history', ['never', 'former', 'current', 'not current', 'ever']),
+      _buildToggle('Hypertension', 'hypertension', true), // Uses 1/0
+      _buildDropdown('Gender', 'gender', ['Male', 'Female']),
+      _buildToggle('Heart Disease', 'heart_disease', true), // Uses 1/0
     ];
   }
 
-  Widget _buildToggle(String label, String key) {
-    bool value = _inputs[key] ?? false;
+  Widget _buildToggle(String label, String key, [bool useInt = false]) {
+    dynamic value = _inputs[key];
+    bool boolValue = false;
+    
+    if (value is bool) boolValue = value;
+    else if (value == 1 || value == 'Yes' || value == 'yes') boolValue = true;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Container(
@@ -254,11 +334,25 @@ class _AiAgentPageState extends State<AiAgentPage> {
             Expanded(child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF334155)))),
             Row(
               children: [
-                Text(value ? 'Yes' : 'No', style: TextStyle(color: value ? const Color(0xFF00AACD) : const Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 12)),
+                Text(boolValue ? 'Yes' : 'No', style: TextStyle(color: boolValue ? const Color(0xFF00AACD) : const Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 12)),
                 const SizedBox(width: 8),
                 Switch(
-                  value: value,
-                  onChanged: (val) => setState(() => _inputs[key] = val),
+                  value: boolValue,
+                  onChanged: (val) {
+                    setState(() {
+                      if (useInt) {
+                        _inputs[key] = val ? 1 : 0;
+                      } else {
+                        // For Kidney/Heart models, they usually want 'yes'/'no' or 'Yes'/'No'
+                        // Based on schemas.py examples: Kidney uses 'no', Heart uses 'Yes'
+                        if (_selectedDisease == 'Kidney Disease') {
+                          _inputs[key] = val ? 'yes' : 'no';
+                        } else {
+                          _inputs[key] = val ? 'Yes' : 'No';
+                        }
+                      }
+                    });
+                  },
                   activeColor: const Color(0xFF00AACD),
                 ),
               ],
@@ -312,6 +406,11 @@ class _AiAgentPageState extends State<AiAgentPage> {
           const SizedBox(height: 8),
           TextField(
             keyboardType: TextInputType.number,
+            onChanged: (val) {
+              setState(() {
+                _inputs[key] = double.tryParse(val) ?? 0.0;
+              });
+            },
             decoration: InputDecoration(
               hintText: 'Enter value',
               filled: true,

@@ -79,14 +79,11 @@ builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<PaymentUpdateWriteDtoValidator>();
 
 builder.Services.AddControllers()
-    .AddNewtonsoftJson(opt =>
+    .AddJsonOptions(options =>
     {
-        opt.SerializerSettings.Converters.Add(new Newtonsoft.Json.Converters.StringEnumConverter());
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
     });
-
-
-
-builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGenJWTAuth();
@@ -131,7 +128,8 @@ using (var scope = app.Services.CreateScope())
 
 #region Configure the HTTP request pipeline.
 
-//app.UseCustomExceptionMiddleware();
+app.UseCors("AllowAll");
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -150,7 +148,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 

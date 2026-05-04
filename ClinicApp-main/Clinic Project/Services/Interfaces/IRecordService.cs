@@ -1,4 +1,4 @@
-﻿using Clinic_Project.Dtos.Record;
+using Clinic_Project.Dtos.Record;
 using Clinic_Project.Helpers;
 using Clinic_Project.Models;
 
@@ -8,7 +8,6 @@ namespace Clinic_Project.Services.Interfaces
     {
         Task<Result<RecordReadDto>?> UpdateAsync(int id, RecordUpdateWriteDto dto);
         Task<Result<RecordReadDto>?> GetAsyncById(int id, string currentUserId, bool isAdmin);
-
-
+        Task<Result<IEnumerable<RecordReadDto>?>> GetByPatientIdAsync(int patientId);
     }
 }

@@ -93,7 +93,7 @@ namespace Clinic_Project.Services.Implementations
                 // create confirm token
                 var token = await _userManager.GenerateEmailConfirmationTokenAsync(appUser);
 
-                var confirmLink = $"{_configuration[\"AppUrl\"]}/api/account/confirm-email?userId={appUser.Id}&token={Uri.EscapeDataString(token)}";
+                var confirmLink = $"{_configuration["AppUrl"]}/api/account/confirm-email?userId={appUser.Id}&token={Uri.EscapeDataString(token)}";
 
                 await transaction.CommitAsync();
 
@@ -154,7 +154,7 @@ namespace Clinic_Project.Services.Implementations
 
                 // For simplicity, we auto-confirm doctors or generate link
                 var token = await _userManager.GenerateEmailConfirmationTokenAsync(appUser);
-                var confirmLink = $"{_configuration[\"AppUrl\"]}/api/account/confirm-email?userId={appUser.Id}&token={Uri.EscapeDataString(token)}";
+                var confirmLink = $"{_configuration["AppUrl"]}/api/account/confirm-email?userId={appUser.Id}&token={Uri.EscapeDataString(token)}";
 
                 await transaction.CommitAsync();
 
@@ -387,7 +387,7 @@ namespace Clinic_Project.Services.Implementations
 
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
 
-            var confirmLink = $"{_configuration[\"AppUrl\"]}/api/account/confirm-email?userId={user.Id}&token={Uri.EscapeDataString(token)}";
+            var confirmLink = $"{_configuration["AppUrl"]}/api/account/confirm-email?userId={user.Id}&token={Uri.EscapeDataString(token)}";
 
             return Result<string>.Ok(confirmLink);
         }
@@ -399,7 +399,7 @@ namespace Clinic_Project.Services.Implementations
                 return Result<string>.Fail("User not found", enErrorType.NotFound);
 
             var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
-            var resetLink = $"{_configuration[\"AppUrl\"]}/api/account/forgot-password?userId={user.Id}&token={Uri.EscapeDataString(resetToken)}";
+            var resetLink = $"{_configuration["AppUrl"]}/api/account/forgot-password?userId={user.Id}&token={Uri.EscapeDataString(resetToken)}";
 
             return Result<string>.Ok(resetLink);
         }
@@ -478,6 +478,7 @@ namespace Clinic_Project.Services.Implementations
             else if (roles.Contains(RoleName.Doctor))
             {
                 var doctor = await _unitOfWork.Doctors.GetOneAsync(d => d.PersonId == user.PersonId);
+                doctor ??= await _unitOfWork.Doctors.GetOneAsync(d => d.PersonId == user.PersonId);
                 accountDto.DoctorId = doctor?.Id;
             }
 

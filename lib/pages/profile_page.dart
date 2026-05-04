@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../widgets/healix_app_bar.dart';
 import 'settings_page.dart';
 import 'login_page.dart';
 import 'privacy_policy_page.dart';
 import '../store/healix_store.dart';
-import 'dart:html' as html;
+import '../services/auth_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -33,18 +34,19 @@ class _ProfilePageState extends State<ProfilePage> {
     super.dispose();
   }
 
-  void _pickImage() {
-    final html.FileUploadInputElement input = html.FileUploadInputElement()..accept = 'image/*';
-    input.click();
-    input.onChange.listen((event) {
-      if (input.files!.isEmpty) return;
-      final file = input.files!.first;
-      final reader = html.FileReader();
-      reader.readAsDataUrl(file);
-      reader.onLoadEnd.listen((event) {
-        healixStore.profileImageUrl.value = reader.result as String;
-      });
-    });
+  void _pickImage() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+      
+      if (image != null) {
+        // Since we are on web, we can use the path or read as bytes
+        // For simple display, path is often enough if handled by DecorationImage
+        healixStore.profileImageUrl.value = image.path;
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+    }
   }
 
   final List<String> _countries = [
@@ -207,13 +209,16 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
           const SizedBox(height: 24),
-          _infoStaticField('Patient ID', 'HX-8829-2024', isDark),
+          ValueListenableBuilder<String?>(
+            valueListenable: healixStore.patientId,
+            builder: (context, pId, _) => _infoStaticField('Patient ID', pId ?? 'HX-PENDING', isDark),
+          ),
           _infoStaticField('Age', '28 Years', isDark),
           const Text('Full Name', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8))),
           const SizedBox(height: 8),
           _infoTextField('Name', _nameController, isDark),
           const SizedBox(height: 16),
-          _infoStaticField('Email Address', 'alexandra.chen@example.health', isDark),
+          _infoStaticField('Email Address', authService.currentUser?.email ?? 'N/A', isDark),
           
           // Editable Phone with Country Selector
           const Text('Phone Number', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8))),
@@ -420,11 +425,14 @@ class _ProfilePageState extends State<ProfilePage> {
       width: double.infinity,
       height: 54,
       child: OutlinedButton.icon(
-        onPressed: () {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => const LoginPage()),
-            (route) => false,
-          );
+        onPressed: () async {
+          await authService.logout();
+          if (context.mounted) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => const LoginPage()),
+              (route) => false,
+            );
+          }
         },
         icon: const Icon(Icons.logout_outlined, color: Color(0xFFB91C1C), size: 20),
         label: const Text('Logout', style: TextStyle(color: Color(0xFFB91C1C), fontWeight: FontWeight.bold, fontSize: 16)),

@@ -7,9 +7,44 @@ import '../store/healix_store.dart';
 import '../utils/page_transitions.dart';
 import '../widgets/healix_background.dart';
 
-class DashboardPage extends StatelessWidget {
+import '../services/patient_service.dart';
+import '../services/auth_service.dart';
+
+class DashboardPage extends StatefulWidget {
   final String username;
-  const DashboardPage({super.key, this.username = 'Alex'});
+  const DashboardPage({super.key, this.username = 'User'});
+
+  @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDashboardData();
+  }
+
+  Future<void> _fetchDashboardData() async {
+    final pId = healixStore.patientId.value;
+    if (pId != null) {
+      final appointments = await patientService.getAppointments(pId);
+      if (appointments.isNotEmpty) {
+        final last = appointments.first;
+        healixStore.setAppointment(
+          last['doctorName'] ?? 'Doctor',
+          last['appointmentDate']?.toString().split('T').first ?? 'TBD',
+          last['appointmentDate']?.toString().split('T').last.substring(0, 5) ?? 'TBD',
+        );
+      }
+      
+      final records = await patientService.getMedicalRecords();
+      healixStore.historyRecords.value = records;
+    }
+    if (mounted) setState(() => _isLoading = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,68 +54,98 @@ class DashboardPage extends StatelessWidget {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: const HealixAppBar(),
       body: HealixBackground(
-        child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 800),
-        curve: Curves.easeOutCubic,
-        builder: (context, value, child) {
-          return Opacity(
-            opacity: value,
-            child: Transform.translate(
-              offset: Offset(0, 20 * (1 - value)),
-              child: child,
-            ),
-          );
-        },
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ValueListenableBuilder<String>(
-                valueListenable: healixStore.userName,
-                builder: (context, name, _) => _buildWelcomeSection(name),
+        child: _isLoading 
+          ? const Center(child: CircularProgressIndicator())
+          : TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 800),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, child) {
+                return Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, 20 * (1 - value)),
+                    child: child,
+                  ),
+                );
+              },
+              child: RefreshIndicator(
+                onRefresh: _fetchDashboardData,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ValueListenableBuilder<String>(
+                        valueListenable: healixStore.userName,
+                        builder: (context, name, _) => _buildWelcomeSection(name),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildSectionHeader('Upcoming Appointment', 'View All', isDark, () {
+                        Navigator.push(context, SlideRightRoute(page: const DoctorsListPage()));
+                      }),
+                    const SizedBox(height: 12),
+                    ValueListenableBuilder<Map<String, dynamic>?>(
+                      valueListenable: healixStore.lastAppointment,
+                      builder: (context, appointment, child) {
+                        if (appointment != null) {
+                          return _buildUpcomingAppointment(context, 
+                            doctorName: appointment['doctorName'],
+                            date: appointment['date'],
+                            time: appointment['time'],
+                          );
+                        }
+                        return _buildNoAppointment(context);
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    _buildSectionHeader('Recent Analysis', 'Full History', isDark, () {
+                      Navigator.push(context, SlideRightRoute(page: const HistoryPage()));
+                    }),
+                    const SizedBox(height: 12),
+                    ValueListenableBuilder<List<Map<String, dynamic>>>(
+                      valueListenable: healixStore.historyRecords,
+                      builder: (context, records, _) {
+                        if (records.isNotEmpty) {
+                          return _buildRecentAnalysis(context, record: records.first);
+                        }
+                        return const Center(child: Text('No recent analysis'));
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    _buildHealthPulseBanner(),
+                    const SizedBox(height: 40),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(height: 24),
-              _buildSectionHeader('Upcoming Appointment', 'View All', isDark, () {
-                Navigator.push(context, SlideRightRoute(page: const DoctorsListPage()));
-              }),
-            const SizedBox(height: 12),
-            ValueListenableBuilder<Map<String, dynamic>?>(
-              valueListenable: healixStore.lastAppointment,
-              builder: (context, appointment, child) {
-                if (appointment != null) {
-                  return _buildUpcomingAppointment(context, 
-                    doctorName: appointment['doctorName'],
-                    date: appointment['date'],
-                    time: appointment['time'],
-                  );
-                }
-                return _buildUpcomingAppointment(context);
-              },
             ),
-            const SizedBox(height: 24),
-            _buildSectionHeader('Recent Analysis', 'Full History', isDark, () {
-              Navigator.push(context, SlideRightRoute(page: const HistoryPage()));
-            }),
-            const SizedBox(height: 12),
-            ValueListenableBuilder<List<Map<String, dynamic>>>(
-              valueListenable: healixStore.historyRecords,
-              builder: (context, records, _) {
-                if (records.isNotEmpty) {
-                  return _buildRecentAnalysis(context, record: records.first);
-                }
-                return const Center(child: Text('No recent analysis'));
-              },
-            ),
-            const SizedBox(height: 24),
-            _buildHealthPulseBanner(),
-            const SizedBox(height: 40),
-            ],
-          ),
-        ),
       ),
-    ),
+    );
+  }
+
+  Widget _buildNoAppointment(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(30),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.calendar_today_outlined, size: 48, color: Color(0xFF94A3B8)),
+          const SizedBox(height: 16),
+          const Text('No upcoming appointments', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => Navigator.push(context, SlideRightRoute(page: const DoctorsListPage())),
+            child: const Text('Book Now'),
+          ),
+        ],
+      ),
     );
   }
 

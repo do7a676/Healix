@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../core/network/api_service.dart';
+import '../store/healix_store.dart';
 
 class AuthService {
   final ApiService _api = ApiService();
@@ -25,23 +26,25 @@ class AuthService {
     required String role,
   }) async {
     try {
-      // Simulation of a network delay
-      await Future.delayed(const Duration(seconds: 1));
+      final response = await _api.post('/accounts/login', data: {
+        'userNameOrEmail': email,
+        'password': password,
+      });
 
-      // MOCK LOGIC: Accept any login for demo purposes
-      // In a real app, you might check against locally saved users
-      
-      final user = UserModel(
-        id: DateTime.now().millisecondsSinceEpoch,
-        fullName: email.split('@').first.toUpperCase(),
-        email: email,
-        role: role,
-        token: 'mock-jwt-token-${DateTime.now().millisecondsSinceEpoch}',
-      );
-      
-      _currentUser = user;
-      await _saveSession(user);
-      return AuthResult.success(user);
+      if (response.statusCode == 200) {
+        // Step 1: Handle token response
+        final tokenData = response.data; // AccessToken, RefreshToken, Expiration
+        final String accessToken = tokenData['accessToken'];
+        
+        // Save token immediately for subsequent profile fetch
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_tokenKey, accessToken);
+
+        // Step 2: Fetch full profile
+        return await getProfile();
+      } else {
+        return AuthResult.failure("Login failed with status ${response.statusCode}");
+      }
     } catch (e) {
       return AuthResult.failure(e.toString());
     }
@@ -59,24 +62,75 @@ class AuthService {
     required String dateOfBirth,
     required int gender,
     required String address,
-    String? licenseId,
+    String? specializationId, // For doctors
+    String? licenseId, // For doctors
   }) async {
     try {
-      // Simulation of a network delay
-      await Future.delayed(const Duration(seconds: 1));
+      final registerData = {
+        'userName': userName,
+        'email': email,
+        'password': password,
+        'phoneNumber': phoneNumber,
+        'person': {
+          'firstName': firstName,
+          'lastName': lastName,
+          'dateOfBirth': dateOfBirth,
+          'gender': gender,
+          'address': address,
+        },
+        if (role.toLowerCase() == 'doctor') ...{
+          'specializationId': specializationId,
+          'licenseId': licenseId,
+        },
+      };
 
-      // MOCK LOGIC: Always succeed and create a local user
-      final user = UserModel(
-        id: DateTime.now().millisecondsSinceEpoch,
-        fullName: "$firstName $lastName",
-        email: email,
-        role: role,
-        token: 'mock-token-after-register-${DateTime.now().millisecondsSinceEpoch}',
-      );
-      
-      _currentUser = user;
-      await _saveSession(user);
-      return AuthResult.success(user);
+      final String endpoint = role.toLowerCase() == 'doctor' 
+          ? '/accounts/doctors/register' 
+          : '/accounts/patients/register';
+
+      final response = await _api.post(endpoint, data: registerData);
+
+      if (response.statusCode == 200) {
+        // Backend returns Ok(new { Message, ConfirmLink })
+        // After registration, we usually ask user to login or we auto-login if backend supports it
+        // For now, we'll suggest logging in since we don't have the token yet
+        return AuthResult.success(UserModel(
+          id: '0', 
+          fullName: "$firstName $lastName", 
+          email: email, 
+          roles: [role]
+        ));
+      } else {
+        return AuthResult.failure("Registration failed");
+      }
+    } catch (e) {
+      return AuthResult.failure(e.toString());
+    }
+  }
+
+  // ── Get Profile ────────────────────────────────────────────────────────
+  Future<AuthResult> getProfile() async {
+    try {
+      final response = await _api.get('/accounts/profile');
+      if (response.statusCode == 200) {
+        final user = UserModel.fromJson(response.data);
+        _currentUser = user;
+        
+        // Populate Global Store
+        healixStore.userName.value = user.fullName;
+        
+        // Handle patient/doctor IDs from backend response
+        if (response.data['patientId'] != null) {
+          healixStore.patientId.value = response.data['patientId'].toString();
+        }
+        if (response.data['doctorId'] != null) {
+          healixStore.doctorId.value = response.data['doctorId'].toString();
+        }
+
+        await _saveSession(user);
+        return AuthResult.success(user);
+      }
+      return AuthResult.failure("Could not fetch profile");
     } catch (e) {
       return AuthResult.failure(e.toString());
     }
@@ -85,6 +139,10 @@ class AuthService {
   // ── Logout ─────────────────────────────────────────────────────────────
   Future<void> logout() async {
     _currentUser = null;
+    healixStore.userName.value = 'User';
+    healixStore.patientId.value = null;
+    healixStore.doctorId.value = null;
+    
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
@@ -98,6 +156,8 @@ class AuthService {
       if (userJson != null) {
         final user = UserModel.fromJson(jsonDecode(userJson));
         _currentUser = user;
+        // Optionally refresh profile in background
+        getProfile();
         return user;
       }
     } catch (_) {}
@@ -120,8 +180,6 @@ class AuthService {
       if (token != null) 'Authorization': 'Bearer $token',
     };
   }
-  String _capitalize(String s) =>
-      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }
 
 // ── Result wrapper ──────────────────────────────────────────────────────────

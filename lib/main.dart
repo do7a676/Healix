@@ -17,11 +17,14 @@ void main() async {
   Widget initialPage = const LoginPage();
   
   if (user != null) {
-    healixStore.setUserName(user.fullName);
-    if (user.role == 'doctor') {
-      initialPage = DoctorHomePage(username: user.fullName);
+    // Refresh profile to populate IDs and name in HealixStore
+    await authService.getProfile();
+    final freshUser = authService.currentUser ?? user;
+    
+    if (freshUser.role == 'doctor') {
+      initialPage = DoctorHomePage(username: freshUser.fullName);
     } else {
-      initialPage = HomePage(username: user.fullName);
+      initialPage = HomePage(username: freshUser.fullName);
     }
   }
 

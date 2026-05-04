@@ -1,4 +1,4 @@
-﻿using Clinic_Project.Dtos.Record;
+using Clinic_Project.Dtos.Record;
 using Clinic_Project.Helpers;
 using Clinic_Project.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -25,6 +25,13 @@ namespace Clinic_Project.Controllers
         {
             var result = await _recordService.GetAllAsync();
             return !result.Success ? NotFound(result.ErrorMessage) : Ok(result.Data);
+        }
+
+        [HttpGet("patient/{patientId}")]
+        public async Task<IActionResult> GetRecordsByPatientId(int patientId)
+        {
+            var result = await _recordService.GetByPatientIdAsync(patientId);
+            return !result.Success ? BadRequest(result.ErrorMessage) : Ok(result.Data);
         }
 
         [HttpGet("{id}")]
