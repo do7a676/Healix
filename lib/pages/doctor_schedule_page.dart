@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'patient_record_detail_page.dart';
 
 class DoctorSchedulePage extends StatelessWidget {
   const DoctorSchedulePage({super.key});
@@ -83,23 +84,76 @@ class DoctorSchedulePage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
+            _buildCalendarStrip(),
+            const SizedBox(height: 24),
             _buildStatsGrid(),
             const SizedBox(height: 24),
             _buildDivider('UPCOMING TODAY'),
             const SizedBox(height: 16),
-            _upcomingItem('09:30', 'AM', 'Alexander\nThompson', 'Routine Check-up • 30 mins', 'confirmed'),
-            _upcomingItem('10:15', 'AM', 'Sarah\nMitchell', 'Initial Consultation • 45 mins', 'pending'),
-            _upcomingItem('11:30', 'AM', 'Gregory\nHouse', 'Diagnostic Review • 60 mins', 'confirmed'),
+            _upcomingItem(context, '09:30', 'AM', 'Alexander Thompson', 'Routine Check-up • 30 mins', 'confirmed'),
+            _upcomingItem(context, '10:15', 'AM', 'Sarah Mitchell', 'Initial Consultation • 45 mins', 'pending'),
+            _upcomingItem(context, '11:30', 'AM', 'Gregory House', 'Diagnostic Review • 60 mins', 'confirmed'),
             const SizedBox(height: 8),
             _buildDivider('PAST CONSULTATIONS'),
             const SizedBox(height: 16),
-            _pastItem('08:00\nAM', 'Elena\nRodriguez', 'Follow-up Lab Results • 15 mins'),
-            _pastItem('Yesterday\n04:30 PM', 'Marcus\nChen', 'Prescription Renewal • 15 mins'),
+            _pastItem(context, '08:00\nAM', 'Elena Rodriguez', 'Follow-up Lab Results • 15 mins'),
+            _pastItem(context, 'Yesterday\n04:30 PM', 'Marcus Chen', 'Prescription Renewal • 15 mins'),
             const SizedBox(height: 24),
             _buildAiInsightsCard(),
             const SizedBox(height: 80), // Padding for BottomNav
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCalendarStrip() {
+    return SizedBox(
+      height: 90,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: 7,
+        itemBuilder: (context, index) {
+          final date = DateTime.now().add(Duration(days: index - 2));
+          final isToday = index == 2;
+          return Container(
+            width: 65,
+            margin: const EdgeInsets.only(right: 12),
+            decoration: BoxDecoration(
+              color: isToday ? const Color(0xFF007580) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][date.weekday % 7],
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: isToday ? Colors.white70 : Colors.blueGrey.shade300,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  date.day.toString(),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: isToday ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -171,116 +225,155 @@ class DoctorSchedulePage extends StatelessWidget {
     );
   }
 
-  Widget _upcomingItem(String time, String period, String name, String details, String status) {
+  Widget _upcomingItem(BuildContext context, String time, String period, String name, String details, String status) {
     final isConfirmed = status == 'confirmed';
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PatientRecordDetailPage(
+              patientName: name,
+              patientId: '#${name.split(' ').first.substring(0, 2).toUpperCase()}-12345',
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 5)),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Column(
+              children: [
+                Text(time, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                Text(period, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade400)),
+              ],
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A))),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Text(details, style: TextStyle(fontSize: 12, color: Colors.blueGrey.shade400)),
+                      const SizedBox(width: 8),
+                      _statusBadge(status),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right, color: Colors.blueGrey.shade300, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statusBadge(String status) {
+    final isConfirmed = status == 'confirmed';
+    final isPending = status == 'pending';
+    final isCompleted = status == 'completed';
+
+    Color bgColor = const Color(0xFFBBEBF0);
+    Color textColor = const Color(0xFF007580);
+    IconData icon = Icons.check_circle;
+
+    if (isPending) {
+      bgColor = const Color(0xFFFAF3EC);
+      textColor = const Color(0xFFB3672B);
+      icon = Icons.watch_later;
+    } else if (isCompleted) {
+      bgColor = const Color(0xFFF1F5F9);
+      textColor = Colors.blueGrey;
+      icon = Icons.check_circle_outline;
+    }
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 5)),
-        ],
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Column(
-            children: [
-              Text(time, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-              Text(period, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade400)),
-            ],
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
-                const SizedBox(height: 2),
-                Text(details, style: TextStyle(fontSize: 12, color: Colors.blueGrey.shade400)),
-              ],
+          Icon(icon, size: 12, color: textColor),
+          const SizedBox(width: 4),
+          Text(
+            status,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: textColor,
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: isConfirmed ? const Color(0xFFBBEBF0) : const Color(0xFFFFE0B2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  isConfirmed ? Icons.check_circle : Icons.error,
-                  size: 12,
-                  color: isConfirmed ? const Color(0xFF007580) : Colors.deepOrange,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  status,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: isConfirmed ? const Color(0xFF007580) : Colors.deepOrange,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Icon(Icons.chevron_right, color: Colors.blueGrey.shade300, size: 20),
         ],
       ),
     );
   }
 
-  Widget _pastItem(String timeFull, String name, String details) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 50,
-            child: Text(timeFull, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blueGrey.shade500), textAlign: TextAlign.center),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blueGrey.shade700)),
-                const SizedBox(height: 2),
-                Text(details, style: TextStyle(fontSize: 12, color: Colors.blueGrey.shade400)),
-              ],
+  Widget _pastItem(BuildContext context, String timeFull, String name, String details) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PatientRecordDetailPage(
+              patientName: name,
+              patientId: '#${name.split(' ').first.substring(0, 2).toUpperCase()}-12345',
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE2E8F0),
-              borderRadius: BorderRadius.circular(12),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 50,
+              child: Text(timeFull, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blueGrey.shade500), textAlign: TextAlign.center),
             ),
-            child: Row(
-              children: [
-                Icon(Icons.check_circle_outline, size: 12, color: Colors.blueGrey.shade500),
-                const SizedBox(width: 4),
-                Text(
-                  'completed',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade500),
-                ),
-              ],
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blueGrey.shade700)),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Text(details, style: TextStyle(fontSize: 12, color: Colors.blueGrey.shade400)),
+                      const SizedBox(width: 8),
+                      _statusBadge('completed'),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Icon(Icons.chevron_right, color: Colors.blueGrey.shade300, size: 20),
-        ],
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right, color: Colors.blueGrey.shade300, size: 20),
+          ],
+        ),
       ),
     );
   }

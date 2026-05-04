@@ -54,7 +54,11 @@ class DoctorDashboardPage extends StatelessWidget {
           _buildSectionHeader('Recent Activity', Icons.history, textColor),
           const SizedBox(height: 16),
           _buildRecentActivity(isDark, textColor, subTextColor),
-          const SizedBox(height: 80),
+          const SizedBox(height: 24),
+          _buildSectionHeader('Patient Insights', Icons.insights, textColor),
+          const SizedBox(height: 16),
+          _buildPatientInsights(isDark, cardColor, textColor, subTextColor),
+          const SizedBox(height: 100),
         ]),
       ),
       floatingActionButton: FloatingActionButton(
@@ -254,5 +258,99 @@ class DoctorDashboardPage extends StatelessWidget {
         Text(time, style: TextStyle(fontSize: 11, color: subTextColor)),
       ]))),
     ]));
+  }
+
+  Widget _buildPatientInsights(bool isDark, Color cardColor, Color textColor, Color subTextColor) {
+    return SizedBox(
+      height: 200,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          _insightCard(
+            'HYPERTENSION TREND',
+            'Regional Compliance',
+            '+4.2% from last month',
+            _buildBarChart(isDark),
+            cardColor, textColor, subTextColor,
+          ),
+          const SizedBox(width: 16),
+          _insightCard(
+            'VACCINATION RATE',
+            'Clinical Readiness',
+            'Active patient base',
+            _buildCircularChart(isDark),
+            cardColor, textColor, subTextColor,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _insightCard(String label, String title, String subtitle, Widget chart, Color cardColor, Color textColor, Color subTextColor) {
+    return Container(
+      width: 260,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 5))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF007580), letterSpacing: 0.5)),
+          const SizedBox(height: 12),
+          Expanded(child: chart),
+          const SizedBox(height: 12),
+          Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor)),
+          Text(subtitle, style: TextStyle(fontSize: 12, color: subTextColor)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBarChart(bool isDark) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        _bar(40, isDark),
+        _bar(70, isDark),
+        _bar(50, isDark),
+        _bar(90, isDark),
+      ],
+    );
+  }
+
+  Widget _bar(double height, bool isDark) {
+    return Container(
+      width: 30,
+      height: height,
+      decoration: BoxDecoration(
+        color: const Color(0xFF007580).withOpacity(height > 60 ? 0.8 : 0.3),
+        borderRadius: BorderRadius.circular(4),
+      ),
+    );
+  }
+
+  Widget _buildCircularChart(bool isDark) {
+    return Center(
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox(
+            width: 70,
+            height: 70,
+            child: CircularProgressIndicator(
+              value: 0.75,
+              strokeWidth: 8,
+              backgroundColor: const Color(0xFF007580).withOpacity(0.1),
+              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF007580)),
+            ),
+          ),
+          const Text('75%', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF007580))),
+        ],
+      ),
+    );
   }
 }

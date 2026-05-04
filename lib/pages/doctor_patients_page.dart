@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'doctor_profile_page.dart';
+import 'patient_record_detail_page.dart';
 
 class DoctorPatientsPage extends StatelessWidget {
   const DoctorPatientsPage({super.key});
@@ -199,86 +200,99 @@ class DoctorPatientsPage extends StatelessWidget {
     required String dateOrTime, required IconData dateIcon, required String condition, required IconData conditionIcon,
     required bool isDark, required Color cardColor, required Color textColor, required Color subTextColor, required Color borderColor,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 5)),
-        ],
-        border: isUrgent
-            ? const Border(left: BorderSide(color: Color(0xFFDC2626), width: 4))
-            : Border.all(color: borderColor),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 48, height: 48,
-                  decoration: const BoxDecoration(color: Color(0xFF1E293B), shape: BoxShape.circle),
-                  child: const Icon(Icons.person, color: Colors.white),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor)),
-                      Text('ID: $id', style: TextStyle(fontSize: 12, color: subTextColor)),
-                    ],
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PatientRecordDetailPage(
+              patientName: name,
+              patientId: id,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 5)),
+          ],
+          border: isUrgent
+              ? const Border(left: BorderSide(color: Color(0xFFDC2626), width: 4))
+              : Border.all(color: borderColor),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 48, height: 48,
+                    decoration: const BoxDecoration(color: Color(0xFF1E293B), shape: BoxShape.circle),
+                    child: const Icon(Icons.person, color: Colors.white),
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isUrgent
-                        ? (isDark ? const Color(0xFFDC2626).withOpacity(0.15) : const Color(0xFFFEE2E2))
-                        : (isDark ? const Color(0xFF059669).withOpacity(0.15) : const Color(0xFFD1FAE5)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    status,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: isUrgent ? const Color(0xFFDC2626) : const Color(0xFF059669),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor)),
+                        Text('ID: $id', style: TextStyle(fontSize: 12, color: subTextColor)),
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(dateIcon, size: 14, color: isUrgent ? const Color(0xFFDC2626) : subTextColor),
-                const SizedBox(width: 4),
-                Text(
-                  dateOrTime,
-                  style: TextStyle(fontSize: 12, fontWeight: isUrgent ? FontWeight.bold : FontWeight.normal, color: isUrgent ? const Color(0xFFDC2626) : subTextColor),
-                ),
-                const SizedBox(width: 16),
-                Icon(conditionIcon, size: 14, color: subTextColor),
-                const SizedBox(width: 4),
-                Text(condition, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: subTextColor)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                _buildActionIcon(Icons.description, isDark: isDark),
-                const SizedBox(width: 8),
-                _buildActionIcon(Icons.medical_services, isTeal: true, isDark: isDark),
-                const SizedBox(width: 8),
-                _buildActionIcon(Icons.history, isDark: isDark),
-                const Spacer(),
-                Icon(Icons.chevron_right, color: subTextColor),
-              ],
-            ),
-          ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isUrgent
+                          ? (isDark ? const Color(0xFFDC2626).withOpacity(0.15) : const Color(0xFFFEE2E2))
+                          : (isDark ? const Color(0xFF059669).withOpacity(0.15) : const Color(0xFFD1FAE5)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      status,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: isUrgent ? const Color(0xFFDC2626) : const Color(0xFF059669),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Icon(dateIcon, size: 14, color: isUrgent ? const Color(0xFFDC2626) : subTextColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    dateOrTime,
+                    style: TextStyle(fontSize: 12, fontWeight: isUrgent ? FontWeight.bold : FontWeight.normal, color: isUrgent ? const Color(0xFFDC2626) : subTextColor),
+                  ),
+                  const SizedBox(width: 16),
+                  Icon(conditionIcon, size: 14, color: subTextColor),
+                  const SizedBox(width: 4),
+                  Text(condition, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: subTextColor)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  _buildActionIcon(Icons.description, isDark: isDark),
+                  const SizedBox(width: 8),
+                  _buildActionIcon(Icons.medical_services, isTeal: true, isDark: isDark),
+                  const SizedBox(width: 8),
+                  _buildActionIcon(Icons.history, isDark: isDark),
+                  const Spacer(),
+                  Icon(Icons.chevron_right, color: subTextColor),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

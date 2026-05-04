@@ -60,9 +60,9 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 _buildNavItem(icon: Icons.home_filled, label: 'Home', index: 0),
-                _buildNavItem(icon: Icons.calendar_today_outlined, label: 'Schedule', index: 1),
+                _buildNavItem(icon: Icons.calendar_month_outlined, label: 'Schedule', index: 1),
                 _buildCenterAction(index: 2),
-                _buildNavItem(icon: Icons.people_outline, label: 'Patients', index: 3),
+                _buildNavItem(icon: Icons.assignment_outlined, label: 'Records', index: 3),
                 _buildNavItem(icon: Icons.person_outline, label: 'Profile', index: 4),
               ],
             ),
@@ -134,8 +134,17 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
             child: const Icon(Icons.auto_awesome, color: Colors.white, size: 24),
           ),
           const SizedBox(height: 4),
+          const Text(
+            'DRIVE_AI',
+            style: TextStyle(
+              color: Color(0xFF1E293B),
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2.0,
+            ),
+          ),
           Text(
-            'AI Reviews',
+            'Analyze',
             style: TextStyle(
               color: isSelected ? const Color(0xFF00C4D4) : Colors.blueGrey.shade700,
               fontSize: 10,
