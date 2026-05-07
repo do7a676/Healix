@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DoctorAiResultPage extends StatefulWidget {
   const DoctorAiResultPage({super.key});
@@ -11,6 +12,32 @@ class _DoctorAiResultPageState extends State<DoctorAiResultPage> {
   final TextEditingController _reportController1 = TextEditingController();
   final TextEditingController _reportController2 = TextEditingController();
   final TextEditingController _reportController3 = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReports();
+    
+    _reportController1.addListener(() => _saveReport('ai_report_1', _reportController1.text));
+    _reportController2.addListener(() => _saveReport('ai_report_2', _reportController2.text));
+    _reportController3.addListener(() => _saveReport('ai_report_3', _reportController3.text));
+  }
+
+  Future<void> _loadReports() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _reportController1.text = prefs.getString('ai_report_1') ?? '';
+        _reportController2.text = prefs.getString('ai_report_2') ?? '';
+        _reportController3.text = prefs.getString('ai_report_3') ?? '';
+      });
+    }
+  }
+
+  Future<void> _saveReport(String key, String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(key, value);
+  }
 
   @override
   void dispose() {

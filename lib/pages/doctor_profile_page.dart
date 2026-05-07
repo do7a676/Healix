@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'login_page.dart';
 
 class DoctorProfilePage extends StatefulWidget {
   const DoctorProfilePage({super.key});
@@ -11,6 +12,13 @@ class _DoctorProfilePageState extends State<DoctorProfilePage> {
   bool _urgentAlerts = true;
   bool _biometrics = true;
   String _labPrefs = 'End of Day';
+
+  void _handleLogout() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+      (route) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,9 +37,14 @@ class _DoctorProfilePageState extends State<DoctorProfilePage> {
         leading: IconButton(icon: const Icon(Icons.menu, color: Color(0xFF00C4D4)), onPressed: () {}),
         title: Image.asset('assets/images/logo_full.jpeg', height: 32, fit: BoxFit.contain),
         actions: [
+          IconButton(
+            icon: Icon(Icons.logout, color: Colors.redAccent.withOpacity(0.8)),
+            onPressed: _handleLogout,
+            tooltip: 'Log Out',
+          ),
           IconButton(icon: Icon(Icons.notifications_none, color: isDark ? Colors.white70 : const Color(0xFF334155)), onPressed: () {}),
           Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            margin: const EdgeInsets.only(right: 16, top: 10, bottom: 10),
             padding: const EdgeInsets.all(8),
             decoration: const BoxDecoration(color: Color(0xFF00C4D4), shape: BoxShape.circle),
             child: const Text('DR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
@@ -304,14 +317,21 @@ class _DoctorProfilePageState extends State<DoctorProfilePage> {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton(
-        onPressed: () {},
+        onPressed: _handleLogout,
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 16),
           side: const BorderSide(color: Color(0xFFB91C1C), width: 1.5),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           backgroundColor: isDark ? const Color(0xFFB91C1C).withOpacity(0.08) : Colors.white,
         ),
-        child: const Text('Sign Out', style: TextStyle(color: Color(0xFFB91C1C), fontWeight: FontWeight.bold, fontSize: 16)),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.logout, color: Color(0xFFB91C1C), size: 20),
+            SizedBox(width: 10),
+            Text('Sign Out', style: TextStyle(color: Color(0xFFB91C1C), fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
       ),
     );
   }

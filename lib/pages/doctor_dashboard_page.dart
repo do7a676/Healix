@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'patient_record_detail_page.dart';
 import '../store/healix_store.dart';
 
 class DoctorDashboardPage extends StatelessWidget {
@@ -47,17 +48,9 @@ class DoctorDashboardPage extends StatelessWidget {
           const SizedBox(height: 24),
           _buildStatsRow(isDark),
           const SizedBox(height: 24),
-          _buildSectionHeader('Pending Lab Reviews', Icons.science_outlined, textColor),
+          _buildSectionHeader('Labs Needing Review', Icons.science_outlined, textColor),
           const SizedBox(height: 16),
-          _buildPendingLabs(cardColor, textColor, subTextColor),
-          const SizedBox(height: 24),
-          _buildSectionHeader('Recent Activity', Icons.history, textColor),
-          const SizedBox(height: 16),
-          _buildRecentActivity(isDark, textColor, subTextColor),
-          const SizedBox(height: 24),
-          _buildSectionHeader('Patient Insights', Icons.insights, textColor),
-          const SizedBox(height: 16),
-          _buildPatientInsights(isDark, cardColor, textColor, subTextColor),
+          _buildPendingLabs(context, cardColor, textColor, subTextColor),
           const SizedBox(height: 100),
         ]),
       ),
@@ -206,151 +199,85 @@ class DoctorDashboardPage extends StatelessWidget {
     ]);
   }
 
-  Widget _buildPendingLabs(Color cardColor, Color textColor, Color subTextColor) {
+  Widget _buildPendingLabs(BuildContext context, Color cardColor, Color textColor, Color subTextColor) {
     return Column(children: [
-      _labItem('Metabolic Panel', 'David Wu', 'Critical High', true, cardColor, textColor, subTextColor),
+      _labItem(context, 'Metabolic Panel', 'Marcus Chen', 'AI Processed', true, cardColor, textColor, subTextColor),
       const SizedBox(height: 12),
-      _labItem('Lipid Profile', 'Anita Gupta', 'Stable', false, cardColor, textColor, subTextColor),
+      _labItem(context, 'Lipid Profile', 'Elena Rodriguez', 'AI Processed', false, cardColor, textColor, subTextColor),
+      const SizedBox(height: 12),
+      _labItem(context, 'Complete Blood Count', 'Sarah Mitchell', 'AI Processed', false, cardColor, textColor, subTextColor),
     ]);
   }
 
-  Widget _labItem(String title, String patient, String status, bool isCritical, Color cardColor, Color textColor, Color subTextColor) {
-    return Container(
-      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 5))]),
-      child: IntrinsicHeight(child: Row(children: [
-        Container(width: 4, decoration: BoxDecoration(color: isCritical ? Colors.red : const Color(0xFF007580), borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), bottomLeft: Radius.circular(16)))),
-        Expanded(child: Padding(padding: const EdgeInsets.all(16), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor)),
-            const SizedBox(height: 4),
-            Row(children: [
-              Text('Patient: $patient', style: TextStyle(fontSize: 12, color: subTextColor)),
-              Text(' • ', style: TextStyle(fontSize: 12, color: subTextColor)),
-              Text(status, style: TextStyle(fontSize: 12, color: isCritical ? Colors.red : subTextColor)),
-            ]),
-          ]),
-          Icon(isCritical ? Icons.error_outline : Icons.check_circle, color: isCritical ? Colors.red : const Color(0xFF007580), size: 20),
-        ]))),
-      ])),
-    );
-  }
-
-  Widget _buildRecentActivity(bool isDark, Color textColor, Color subTextColor) {
-    return Column(children: [
-      _activityItem(Icons.edit_document, 'Notes Finalized', 'Case #8829 - Janet Miller', '12 mins ago', isLast: false, isDark: isDark, textColor: textColor, subTextColor: subTextColor),
-      _activityItem(Icons.medical_services_outlined, 'Prescription Sent', 'Amoxicillin • Robert Chen', '45 mins ago', isLast: false, isDark: isDark, textColor: textColor, subTextColor: subTextColor),
-      _activityItem(Icons.phone_in_talk_outlined, 'Telehealth Request', 'Follow-up • Lisa Ray', '1 hour ago', isLast: true, isDark: isDark, textColor: textColor, subTextColor: subTextColor),
-    ]);
-  }
-
-  Widget _activityItem(IconData icon, String title, String subtitle, String time, {required bool isLast, required bool isDark, required Color textColor, required Color subTextColor}) {
-    return IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      SizedBox(width: 32, child: Column(children: [
-        Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: isDark ? const Color(0xFF007580).withOpacity(0.15) : const Color(0xFFF1F9FB), shape: BoxShape.circle), child: Icon(icon, color: const Color(0xFF007580), size: 14)),
-        if (!isLast) Expanded(child: Container(width: 2, color: isDark ? Colors.white12 : const Color(0xFFE2E8F0))),
-      ])),
-      const SizedBox(width: 12),
-      Expanded(child: Padding(padding: const EdgeInsets.only(bottom: 20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor)),
-        const SizedBox(height: 2),
-        Text(subtitle, style: TextStyle(fontSize: 12, color: subTextColor)),
-        const SizedBox(height: 2),
-        Text(time, style: TextStyle(fontSize: 11, color: subTextColor)),
-      ]))),
-    ]));
-  }
-
-  Widget _buildPatientInsights(bool isDark, Color cardColor, Color textColor, Color subTextColor) {
-    return SizedBox(
-      height: 200,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          _insightCard(
-            'HYPERTENSION TREND',
-            'Regional Compliance',
-            '+4.2% from last month',
-            _buildBarChart(isDark),
-            cardColor, textColor, subTextColor,
-          ),
-          const SizedBox(width: 16),
-          _insightCard(
-            'VACCINATION RATE',
-            'Clinical Readiness',
-            'Active patient base',
-            _buildCircularChart(isDark),
-            cardColor, textColor, subTextColor,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _insightCard(String label, String title, String subtitle, Widget chart, Color cardColor, Color textColor, Color subTextColor) {
-    return Container(
-      width: 260,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 5))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF007580), letterSpacing: 0.5)),
-          const SizedBox(height: 12),
-          Expanded(child: chart),
-          const SizedBox(height: 12),
-          Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor)),
-          Text(subtitle, style: TextStyle(fontSize: 12, color: subTextColor)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBarChart(bool isDark) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        _bar(40, isDark),
-        _bar(70, isDark),
-        _bar(50, isDark),
-        _bar(90, isDark),
-      ],
-    );
-  }
-
-  Widget _bar(double height, bool isDark) {
-    return Container(
-      width: 30,
-      height: height,
-      decoration: BoxDecoration(
-        color: const Color(0xFF007580).withOpacity(height > 60 ? 0.8 : 0.3),
-        borderRadius: BorderRadius.circular(4),
-      ),
-    );
-  }
-
-  Widget _buildCircularChart(bool isDark) {
-    return Center(
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          SizedBox(
-            width: 70,
-            height: 70,
-            child: CircularProgressIndicator(
-              value: 0.75,
-              strokeWidth: 8,
-              backgroundColor: const Color(0xFF007580).withOpacity(0.1),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF007580)),
+  Widget _labItem(BuildContext context, String title, String patient, String status, bool isCritical, Color cardColor, Color textColor, Color subTextColor) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PatientRecordDetailPage(
+              patientName: patient,
+              patientId: '#${patient.split(' ').first.substring(0, 2).toUpperCase()}-12345',
             ),
           ),
-          const Text('75%', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF007580))),
-        ],
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 5))],
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            children: [
+              Container(
+                width: 4,
+                decoration: BoxDecoration(
+                  color: isCritical ? Colors.red : const Color(0xFF007580),
+                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), bottomLeft: Radius.circular(16)),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor)),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text('Patient: $patient', style: TextStyle(fontSize: 12, color: subTextColor)),
+                              Text(' • ', style: TextStyle(fontSize: 12, color: subTextColor)),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE0FAFC),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  status,
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF007580)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const Icon(Icons.chevron_right, color: Color(0xFF007580), size: 20),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
+
 }

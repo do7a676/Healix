@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
-class PatientRecordDetailPage extends StatelessWidget {
+class PatientRecordDetailPage extends StatefulWidget {
   final String patientName;
   final String patientId;
 
@@ -9,6 +11,78 @@ class PatientRecordDetailPage extends StatelessWidget {
     required this.patientName,
     required this.patientId,
   });
+
+  @override
+  State<PatientRecordDetailPage> createState() => _PatientRecordDetailPageState();
+}
+
+class _PatientRecordDetailPageState extends State<PatientRecordDetailPage> {
+  bool _showAiDetails = false;
+  List<String> _observations = [
+    'Stable vitals, continued medication.',
+    'Lipid panel and metabolic results.'
+  ];
+  final TextEditingController _reportController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPersistedData();
+  }
+
+  Future<void> _loadPersistedData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String obsKey = 'obs_${widget.patientId}';
+    final String reportKey = 'report_${widget.patientId}';
+
+    final List<String>? savedObs = prefs.getStringList(obsKey);
+    final String? savedReport = prefs.getString(reportKey);
+
+    if (mounted) {
+      setState(() {
+        if (savedObs != null) _observations = savedObs;
+        if (savedReport != null) _reportController.text = savedReport;
+      });
+    }
+    
+    _reportController.addListener(() {
+      prefs.setString(reportKey, _reportController.text);
+    });
+  }
+
+  Future<void> _saveObservations() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('obs_${widget.patientId}', _observations);
+  }
+
+  void _addObservation() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        String newObs = '';
+        return AlertDialog(
+          title: const Text('Add Observation'),
+          content: TextField(
+            onChanged: (value) => newObs = value,
+            decoration: const InputDecoration(hintText: "Enter observation..."),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                if (newObs.isNotEmpty) {
+                  setState(() => _observations.insert(0, newObs));
+                  await _saveObservations();
+                }
+                Navigator.pop(context);
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,10 +101,14 @@ class PatientRecordDetailPage extends StatelessWidget {
           icon: Icon(Icons.arrow_back, color: textColor),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text('Medical Record', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+        title: Image.asset(
+          'assets/images/logo_full.jpeg',
+          height: 25,
+          fit: BoxFit.contain,
+        ),
+        centerTitle: true,
         actions: [
           IconButton(icon: const Icon(Icons.share_outlined, color: Color(0xFF007580)), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.more_vert, color: Color(0xFF334155)), onPressed: () {}),
         ],
       ),
       body: SingleChildScrollView(
@@ -40,11 +118,16 @@ class PatientRecordDetailPage extends StatelessWidget {
           children: [
             _buildPatientHeader(isDark, cardColor, textColor, subTextColor),
             const SizedBox(height: 24),
-            _buildSectionHeader('AI Health Score', Icons.auto_awesome, textColor),
+            _buildSectionHeader('AI Agent Results', Icons.auto_awesome, textColor),
             const SizedBox(height: 16),
             _buildAiScoreCard(isDark),
+            if (_showAiDetails) _buildAiAgentInputDetails(cardColor, textColor, subTextColor),
             const SizedBox(height: 24),
-            _buildSectionHeader('Clinical History', Icons.history, textColor),
+            _buildSectionHeader('Doctor Report', Icons.description_outlined, textColor),
+            const SizedBox(height: 16),
+            _buildReportField(cardColor, textColor),
+            const SizedBox(height: 24),
+            _buildSectionHeader('Clinical Observations', Icons.history, textColor),
             const SizedBox(height: 16),
             _buildHistoryTimeline(isDark, cardColor, textColor, subTextColor),
             const SizedBox(height: 24),
@@ -72,15 +155,15 @@ class PatientRecordDetailPage extends StatelessWidget {
           CircleAvatar(
             radius: 35,
             backgroundColor: const Color(0xFF007580).withOpacity(0.1),
-            child: const Text('MG', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF007580))),
+            child: Text(widget.patientName.substring(0, 1), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF007580))),
           ),
           const SizedBox(width: 20),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(patientName, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor)),
-                Text('ID: $patientId', style: TextStyle(fontSize: 14, color: subTextColor)),
+                Text(widget.patientName, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor)),
+                Text('ID: ${widget.patientId}', style: TextStyle(fontSize: 14, color: subTextColor)),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -119,61 +202,115 @@ class PatientRecordDetailPage extends StatelessWidget {
   }
 
   Widget _buildAiScoreCard(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF007580), Color(0xFF00C4D4)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return InkWell(
+      onTap: () => setState(() => _showAiDetails = !_showAiDetails),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF007580), Color(0xFF00C4D4)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
         ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text('Health Stability', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                SizedBox(height: 4),
-                Text('Very High', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                SizedBox(height: 12),
-                Text('Based on 14 data points and recent lab results.', style: TextStyle(color: Colors.white70, fontSize: 12)),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Health Stability', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  const SizedBox(height: 4),
+                  const Text('Very High', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Text(_showAiDetails ? 'Tap to hide details' : 'Tap to see AI Agent Input', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                ],
+              ),
+            ),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 80,
+                  height: 80,
+                  child: CircularProgressIndicator(
+                    value: 0.92,
+                    strokeWidth: 10,
+                    backgroundColor: Colors.white.withOpacity(0.2),
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                const Text('92', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
               ],
             ),
-          ),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                width: 80,
-                height: 80,
-                child: CircularProgressIndicator(
-                  value: 0.92,
-                  strokeWidth: 10,
-                  backgroundColor: Colors.white.withOpacity(0.2),
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
-              const Text('92', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAiAgentInputDetails(Color cardColor, Color textColor, Color subTextColor) {
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF007580).withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('AI Agent Input / Reasoning', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF007580))),
+          const SizedBox(height: 8),
+          Text(
+            'Analyzing 14 clinical data points including recent glucose levels, blood pressure, and historical trends. AI predicts high stability based on consistent recovery markers.',
+            style: TextStyle(fontSize: 13, color: subTextColor, height: 1.5),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHistoryTimeline(bool isDark, Color cardColor, Color textColor, Color subTextColor) {
-    return Column(
-      children: [
-        _timelineItem('Routine Checkup', 'Oct 12, 2023', 'Stable vitals, continued medication.', true, cardColor, textColor, subTextColor),
-        _timelineItem('Lab Submission', 'Sep 28, 2023', 'Lipid panel and metabolic results.', false, cardColor, textColor, subTextColor),
-      ],
+  Widget _buildReportField(Color cardColor, Color textColor) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: TextField(
+        controller: _reportController,
+        maxLines: 3,
+        decoration: const InputDecoration(
+          hintText: 'Enter your professional report...',
+          border: InputBorder.none,
+          hintStyle: TextStyle(fontSize: 13),
+        ),
+      ),
     );
   }
 
-  Widget _timelineItem(String title, String date, String desc, bool isLast, Color cardColor, Color textColor, Color subTextColor) {
+  Widget _buildHistoryTimeline(bool isDark, Color cardColor, Color textColor, Color subTextColor) {
+    return Column(
+      children: List.generate(_observations.length, (index) {
+        return _timelineItem(
+          index == 0 ? 'Latest Visit' : 'Past Visit',
+          'Oct ${12 - index}, 2023',
+          _observations[index],
+          index == _observations.length - 1,
+          cardColor,
+          textColor,
+          subTextColor,
+          index,
+        );
+      }),
+    );
+  }
+
+  Widget _timelineItem(String title, String date, String desc, bool isLast, Color cardColor, Color textColor, Color subTextColor, int index) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -188,11 +325,23 @@ class PatientRecordDetailPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor)),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
+                    onPressed: () async {
+                      setState(() => _observations.removeAt(index));
+                      await _saveObservations();
+                    },
+                  ),
+                ],
+              ),
               Text(date, style: TextStyle(fontSize: 12, color: subTextColor)),
               const SizedBox(height: 4),
               Text(desc, style: TextStyle(fontSize: 13, color: subTextColor)),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
             ],
           ),
         ),
@@ -239,7 +388,7 @@ class PatientRecordDetailPage extends StatelessWidget {
           children: [
             Expanded(
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: _addObservation,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF007580),
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -264,3 +413,4 @@ class PatientRecordDetailPage extends StatelessWidget {
     );
   }
 }
+

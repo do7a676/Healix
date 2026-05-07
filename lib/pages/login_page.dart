@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'home_page.dart';
 import 'signup_page.dart';
 import 'doctor_home_page.dart';
+import 'forgot_password_page.dart';
 import '../store/healix_store.dart';
 import '../utils/page_transitions.dart';
 import '../widgets/healix_background.dart';
@@ -195,7 +196,14 @@ class _LoginPageState extends State<LoginPage> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        SlideRightRoute(
+                          page: ForgotPasswordPage(role: _selectedRole),
+                        ),
+                      );
+                    },
                     child: const Text(
                       'Forgot Password?',
                       style: TextStyle(color: Color(0xFF0088CC), fontWeight: FontWeight.w600),

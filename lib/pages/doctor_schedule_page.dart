@@ -1,8 +1,39 @@
 import 'package:flutter/material.dart';
 import 'patient_record_detail_page.dart';
 
-class DoctorSchedulePage extends StatelessWidget {
+import 'package:shared_preferences/shared_preferences.dart';
+
+class DoctorSchedulePage extends StatefulWidget {
   const DoctorSchedulePage({super.key});
+
+  @override
+  State<DoctorSchedulePage> createState() => _DoctorSchedulePageState();
+}
+
+class _DoctorSchedulePageState extends State<DoctorSchedulePage> {
+  DateTime _selectedDate = DateTime.now();
+  final List<String> _weekDays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSelectedDate();
+  }
+
+  Future<void> _loadSelectedDate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? savedDate = prefs.getString('selected_schedule_date');
+    if (savedDate != null && mounted) {
+      setState(() {
+        _selectedDate = DateTime.parse(savedDate);
+      });
+    }
+  }
+
+  Future<void> _saveSelectedDate(DateTime date) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_schedule_date', date.toIso8601String());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,14 +46,12 @@ class DoctorSchedulePage extends StatelessWidget {
           icon: const Icon(Icons.menu, color: Color(0xFF00C4D4)),
           onPressed: () {},
         ),
-        title: const Text(
-          'Healix',
-          style: TextStyle(
-            color: Color(0xFF00C4D4),
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
+        title: Image.asset(
+          'assets/images/logo_full.jpeg',
+          height: 30,
+          fit: BoxFit.contain,
         ),
+        centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_none, color: Color(0xFF334155)),
@@ -46,7 +75,7 @@ class DoctorSchedulePage extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'You have 8 consultations scheduled for today.',
+              'You have 8 consultations scheduled for ${_selectedDate.day}/${_selectedDate.month}.',
               style: TextStyle(fontSize: 13, color: Colors.blueGrey.shade400),
             ),
             const SizedBox(height: 16),
@@ -88,7 +117,7 @@ class DoctorSchedulePage extends StatelessWidget {
             const SizedBox(height: 24),
             _buildStatsGrid(),
             const SizedBox(height: 24),
-            _buildDivider('UPCOMING TODAY'),
+            _buildDivider('UPCOMING FOR ${_weekDays[(_selectedDate.weekday - 1) % 7]}'),
             const SizedBox(height: 16),
             _upcomingItem(context, '09:30', 'AM', 'Alexander Thompson', 'Routine Check-up • 30 mins', 'confirmed'),
             _upcomingItem(context, '10:15', 'AM', 'Sarah Mitchell', 'Initial Consultation • 45 mins', 'pending'),
@@ -112,45 +141,56 @@ class DoctorSchedulePage extends StatelessWidget {
       height: 90,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: 7,
+        itemCount: 14, // Show two weeks including weekends
         itemBuilder: (context, index) {
-          final date = DateTime.now().add(Duration(days: index - 2));
-          final isToday = index == 2;
-          return Container(
-            width: 65,
-            margin: const EdgeInsets.only(right: 12),
-            decoration: BoxDecoration(
-              color: isToday ? const Color(0xFF007580) : Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][date.weekday % 7],
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: isToday ? Colors.white70 : Colors.blueGrey.shade300,
+          final date = DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1)).add(Duration(days: index));
+          final isSelected = _selectedDate.day == date.day && _selectedDate.month == date.month;
+          final isToday = DateTime.now().day == date.day && DateTime.now().month == date.month;
+          
+          return GestureDetector(
+            onTap: () async {
+              setState(() {
+                _selectedDate = date;
+              });
+              await _saveSelectedDate(date);
+            },
+            child: Container(
+              width: 65,
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFF007580) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: isToday && !isSelected ? Border.all(color: const Color(0xFF00C4D4), width: 1.5) : null,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  date.day.toString(),
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: isToday ? Colors.white : const Color(0xFF0F172A),
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _weekDays[date.weekday - 1],
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? Colors.white70 : Colors.blueGrey.shade300,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    date.day.toString(),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -226,7 +266,6 @@ class DoctorSchedulePage extends StatelessWidget {
   }
 
   Widget _upcomingItem(BuildContext context, String time, String period, String name, String details, String status) {
-    final isConfirmed = status == 'confirmed';
     return InkWell(
       onTap: () {
         Navigator.push(
@@ -284,7 +323,6 @@ class DoctorSchedulePage extends StatelessWidget {
   }
 
   Widget _statusBadge(String status) {
-    final isConfirmed = status == 'confirmed';
     final isPending = status == 'pending';
     final isCompleted = status == 'completed';
 
@@ -314,7 +352,7 @@ class DoctorSchedulePage extends StatelessWidget {
           Icon(icon, size: 12, color: textColor),
           const SizedBox(width: 4),
           Text(
-            status,
+            status.toUpperCase(),
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.bold,
@@ -434,3 +472,4 @@ class DoctorSchedulePage extends StatelessWidget {
     );
   }
 }
+
