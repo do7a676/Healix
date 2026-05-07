@@ -56,7 +56,7 @@ class _LoginPageState extends State<LoginPage> {
     if (result.isSuccess) {
       final user = result.user!;
       healixStore.setUserName(user.fullName.isNotEmpty ? user.fullName : _emailController.text.split('@').first);
-      if (user.role == 'doctor') {
+      if (user.role.toLowerCase() == 'doctor') {
         Navigator.pushReplacement(context, SlideRightRoute(page: DoctorHomePage(username: user.fullName)));
       } else {
         Navigator.pushReplacement(context, SlideRightRoute(page: HomePage(username: user.fullName)));
@@ -223,8 +223,9 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     const Text(
                       'Don\'t have an account? ',

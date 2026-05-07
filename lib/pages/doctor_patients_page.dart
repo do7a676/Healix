@@ -152,18 +152,21 @@ class DoctorPatientsPage extends StatelessWidget {
             
             // Patient Cards
             _buildPatientCard(
+              context: context,
               name: 'Maria Garcia', id: '#ER-99201', status: 'Stable', isUrgent: false,
               dateOrTime: 'Oct 12, 2023', dateIcon: Icons.calendar_today,
               condition: 'Vitals Normal', conditionIcon: Icons.monitor_heart_outlined,
               isDark: isDark, cardColor: cardColor, textColor: textColor, subTextColor: subTextColor, borderColor: borderColor,
             ),
             _buildPatientCard(
+              context: context,
               name: 'James Wilson', id: '#IC-44021', status: 'Needs Review', isUrgent: true,
               dateOrTime: '2h ago', dateIcon: Icons.access_time_filled,
               condition: 'Elevated Temp', conditionIcon: Icons.thermostat,
               isDark: isDark, cardColor: cardColor, textColor: textColor, subTextColor: subTextColor, borderColor: borderColor,
             ),
             _buildPatientCard(
+              context: context,
               name: 'Sarah Lee', id: '#ER-99205', status: 'Stable', isUrgent: false,
               dateOrTime: 'Oct 11, 2023', dateIcon: Icons.calendar_today,
               condition: 'Medication Plan', conditionIcon: Icons.medical_services_outlined,
@@ -196,6 +199,7 @@ class DoctorPatientsPage extends StatelessWidget {
   }
 
   Widget _buildPatientCard({
+    required BuildContext context,
     required String name, required String id, required String status, required bool isUrgent,
     required String dateOrTime, required IconData dateIcon, required String condition, required IconData conditionIcon,
     required bool isDark, required Color cardColor, required Color textColor, required Color subTextColor, required Color borderColor,

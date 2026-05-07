@@ -26,6 +26,36 @@ class AuthService {
     required String role,
   }) async {
     try {
+      // ── MOCK BYPASS FOR TESTING ──
+      final cleanEmail = email.trim().toLowerCase();
+      final cleanPassword = password.trim();
+
+      if (cleanEmail == 'doctor@clinic.com' && cleanPassword == 'doctor123') {
+        final mockUser = UserModel(
+          id: 'mock-doctor-id',
+          fullName: 'Dr. Aris',
+          email: 'doctor@clinic.com',
+          roles: ['doctor'],
+        );
+        _currentUser = mockUser;
+        healixStore.userName.value = 'Dr. Aris';
+        healixStore.doctorId.value = '1';
+        return AuthResult.success(mockUser);
+      }
+      
+      if (cleanEmail == 'patient@clinic.com' && cleanPassword == 'patient123') {
+        final mockUser = UserModel(
+          id: 'mock-patient-id',
+          fullName: 'John Doe',
+          email: 'patient@clinic.com',
+          roles: ['patient'],
+        );
+        _currentUser = mockUser;
+        healixStore.userName.value = 'John Doe';
+        healixStore.patientId.value = '1';
+        return AuthResult.success(mockUser);
+      }
+
       final response = await _api.post('/accounts/login', data: {
         'userNameOrEmail': email,
         'password': password,
