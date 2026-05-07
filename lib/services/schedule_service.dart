@@ -10,7 +10,7 @@ class ScheduleService {
   // Fetch schedules for a specific date
   Future<List<Map<String, dynamic>>> getSchedulesByDate(String doctorId, String date) async {
     try {
-      final response = await _api.get('/schedules', params: {
+      final response = await _api.get('/schedules', queryParameters: {
         'doctorId': doctorId,
         'date': date,
       });

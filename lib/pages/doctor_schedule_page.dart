@@ -3,6 +3,9 @@ import 'patient_record_detail_page.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/doctor_service.dart';
+import '../store/healix_store.dart';
+
 class DoctorSchedulePage extends StatefulWidget {
   const DoctorSchedulePage({super.key});
 
@@ -13,11 +16,34 @@ class DoctorSchedulePage extends StatefulWidget {
 class _DoctorSchedulePageState extends State<DoctorSchedulePage> {
   DateTime _selectedDate = DateTime.now();
   final List<String> _weekDays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  List<Map<String, dynamic>> _allAppointments = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadSelectedDate();
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    await _loadSelectedDate();
+    await _fetchAppointments();
+  }
+
+  Future<void> _fetchAppointments() async {
+    final dId = healixStore.doctorId.value;
+    if (dId != null) {
+      if (mounted) setState(() => _isLoading = true);
+      final apps = await doctorService.getAppointments(dId);
+      if (mounted) {
+        setState(() {
+          _allAppointments = apps;
+          _isLoading = false;
+        });
+      }
+    } else {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _loadSelectedDate() async {
@@ -37,6 +63,13 @@ class _DoctorSchedulePageState extends State<DoctorSchedulePage> {
 
   @override
   Widget build(BuildContext context) {
+    final filteredApps = _allAppointments.where((app) {
+      final appDate = DateTime.tryParse(app['appointmentDate'] ?? '') ?? DateTime.now();
+      return appDate.day == _selectedDate.day && 
+             appDate.month == _selectedDate.month && 
+             appDate.year == _selectedDate.year;
+    }).toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -119,9 +152,27 @@ class _DoctorSchedulePageState extends State<DoctorSchedulePage> {
             const SizedBox(height: 24),
             _buildDivider('UPCOMING FOR ${_weekDays[(_selectedDate.weekday - 1) % 7]}'),
             const SizedBox(height: 16),
-            _upcomingItem(context, '09:30', 'AM', 'Alexander Thompson', 'Routine Check-up • 30 mins', 'confirmed'),
-            _upcomingItem(context, '10:15', 'AM', 'Sarah Mitchell', 'Initial Consultation • 45 mins', 'pending'),
-            _upcomingItem(context, '11:30', 'AM', 'Gregory House', 'Diagnostic Review • 60 mins', 'confirmed'),
+            if (_isLoading)
+              const Center(child: CircularProgressIndicator())
+            else if (filteredApps.isEmpty)
+              const Center(child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Text('No appointments for this day'),
+              ))
+            else
+              ...filteredApps.map((app) {
+                final date = DateTime.tryParse(app['appointmentDate'] ?? '') ?? DateTime.now();
+                final time = "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
+                final period = date.hour >= 12 ? 'PM' : 'AM';
+                return _upcomingItem(
+                  context, 
+                  time, 
+                  period, 
+                  app['patientName'] ?? 'Unknown Patient', 
+                  '${app['reason'] ?? 'Consultation'}', 
+                  'confirmed'
+                );
+              }).toList(),
             const SizedBox(height: 8),
             _buildDivider('PAST CONSULTATIONS'),
             const SizedBox(height: 16),

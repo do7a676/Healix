@@ -2,9 +2,40 @@ import 'package:flutter/material.dart';
 import 'patient_record_detail_page.dart';
 import '../store/healix_store.dart';
 
-class DoctorDashboardPage extends StatelessWidget {
+import '../services/doctor_service.dart';
+
+class DoctorDashboardPage extends StatefulWidget {
   final String username;
   const DoctorDashboardPage({super.key, this.username = 'Aris'});
+
+  @override
+  State<DoctorDashboardPage> createState() => _DoctorDashboardPageState();
+}
+
+class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
+  List<Map<String, dynamic>> _appointments = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    final dId = healixStore.doctorId.value;
+    if (dId != null) {
+      final apps = await doctorService.getAppointments(dId);
+      if (mounted) {
+        setState(() {
+          _appointments = apps;
+          _isLoading = false;
+        });
+      }
+    } else {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,28 +63,34 @@ class DoctorDashboardPage extends StatelessWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('MONDAY, OCTOBER 23', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF007580), letterSpacing: 1.0)),
-          const SizedBox(height: 8),
-          ValueListenableBuilder<String>(
-            valueListenable: healixStore.userName,
-            builder: (context, name, _) => Text('Welcome back, Dr. $name', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: textColor)),
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : RefreshIndicator(
+            onRefresh: _fetchData,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('TODAY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF007580), letterSpacing: 1.0)),
+                const SizedBox(height: 8),
+                ValueListenableBuilder<String>(
+                  valueListenable: healixStore.userName,
+                  builder: (context, name, _) => Text('Welcome back, Dr. $name', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: textColor)),
+                ),
+                const SizedBox(height: 24),
+                _buildBanner(isDark),
+                const SizedBox(height: 24),
+                _buildScheduleCard(isDark, cardColor, textColor, subTextColor),
+                const SizedBox(height: 24),
+                _buildStatsRow(isDark),
+                const SizedBox(height: 24),
+                _buildSectionHeader('Recent Reports', Icons.science_outlined, textColor),
+                const SizedBox(height: 16),
+                _buildPendingLabs(context, cardColor, textColor, subTextColor),
+                const SizedBox(height: 100),
+              ]),
+            ),
           ),
-          const SizedBox(height: 24),
-          _buildBanner(isDark),
-          const SizedBox(height: 24),
-          _buildScheduleCard(isDark, cardColor, textColor, subTextColor),
-          const SizedBox(height: 24),
-          _buildStatsRow(isDark),
-          const SizedBox(height: 24),
-          _buildSectionHeader('Labs Needing Review', Icons.science_outlined, textColor),
-          const SizedBox(height: 16),
-          _buildPendingLabs(context, cardColor, textColor, subTextColor),
-          const SizedBox(height: 100),
-        ]),
-      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {},
         backgroundColor: const Color(0xFF007580),
@@ -108,11 +145,31 @@ class DoctorDashboardPage extends StatelessWidget {
           const Text('View All', style: TextStyle(color: Color(0xFF007580), fontWeight: FontWeight.w600, fontSize: 14)),
         ]),
         const SizedBox(height: 20),
-        _scheduleItem('09:00', 'AM', 'Sarah Jenkins', 'Post-Op Consultation', false, false, isDark, textColor, subTextColor),
-        const SizedBox(height: 16),
-        _scheduleItem('09:30', 'AM', 'Marcus Thompson', 'Annual Physical', true, true, isDark, textColor, subTextColor),
-        const SizedBox(height: 16),
-        _scheduleItem('10:15', 'AM', 'Elena Rodriguez', 'Blood Work Review', false, false, isDark, textColor, subTextColor),
+        if (_appointments.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Text('No appointments for today', style: TextStyle(color: Colors.grey)),
+          )
+        else
+          ..._appointments.take(3).map((app) {
+            final date = DateTime.tryParse(app['appointmentDate'] ?? '') ?? DateTime.now();
+            final timeStr = "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
+            final period = date.hour >= 12 ? 'PM' : 'AM';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _scheduleItem(
+                timeStr, 
+                period, 
+                app['patientName'] ?? 'Unknown Patient', 
+                app['reason'] ?? 'Consultation', 
+                false, 
+                true, 
+                isDark, 
+                textColor, 
+                subTextColor
+              ),
+            );
+          }).toList(),
       ]),
     );
   }

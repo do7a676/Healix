@@ -1,6 +1,4 @@
 import '../core/network/api_service.dart';
-import '../models/user_model.dart';
-import 'auth_service.dart';
 import '../store/healix_store.dart';
 
 class PatientService {
