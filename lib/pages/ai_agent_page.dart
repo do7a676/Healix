@@ -296,21 +296,6 @@ class _AiAgentPageState extends State<AiAgentPage> {
     return 'Disease indicators found. Please consult a doctor.';
   }
 
-  // Demo helper – jump to result with a preset state (for testing)
-  void _loadDemoResult(String level) {
-    setState(() {
-      _statusLevel = level;
-      _riskScore   = level == 'healthy' ? 18 : (level == 'risk' ? 45 : 82);
-      _riskDescription = level == 'healthy'
-          ? 'No significant indicators detected.'
-          : level == 'risk'
-              ? 'Some risk factors present. Consider seeing a doctor.'
-              : 'Strong disease indicators. Please see a doctor immediately.';
-      _selectedDisease = 'Diabetes';
-      _currentStep = 2;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -357,42 +342,7 @@ class _AiAgentPageState extends State<AiAgentPage> {
         _selectionCard('Heart Disease', Icons.favorite_outline, 'Predict cardiac health based on vitals.'),
         _selectionCard('Kidney Disease', Icons.opacity_outlined, 'Evaluate renal function and markers.'),
         const SizedBox(height: 32),
-        // ── Demo / Test Row ─────────────────────────────────────────────
-        Text('Test All 3 Outputs', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: subTextColor)),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            _demoBtn('Healthy',   'healthy',   const Color(0xFF22C55E), Icons.check_circle_rounded),
-            const SizedBox(width: 10),
-            _demoBtn('At Risk',   'risk',      const Color(0xFFF59E0B), Icons.warning_amber_rounded),
-            const SizedBox(width: 10),
-            _demoBtn('Unhealthy', 'unhealthy', const Color(0xFFEF4444), Icons.dangerous_rounded),
-          ],
-        ),
       ],
-    );
-  }
-
-  Widget _demoBtn(String label, String level, Color color, IconData icon) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => _loadDemoResult(level),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.10),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withOpacity(0.4)),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, color: color, size: 24),
-              const SizedBox(height: 6),
-              Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
