@@ -35,6 +35,7 @@ namespace Clinic_Project.Controllers
         /// bgr, bu, sc, sod, pot, hemo, pcv, wc, rc,
         /// htn, dm, cad, appet, pe, ane
         /// </remarks>
+        [AllowAnonymous]
         [HttpPost("predict")]
         [ProducesResponseType(typeof(PredictionResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]

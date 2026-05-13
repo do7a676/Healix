@@ -24,9 +24,29 @@ class _AiAgentPageState extends State<AiAgentPage> {
 
   // Input state
   final Map<String, dynamic> _inputs = {};
+
+  // Lazy-init controllers — safe for hot-reload (no initState needed)
+  Map<String, TextEditingController>? _controllersMap;
+  Map<String, TextEditingController> get _controllers =>
+      _controllersMap ??= {};
+
+  TextEditingController _getController(String key) {
+    return _controllers.putIfAbsent(
+      key,
+      () => TextEditingController(text: _inputs[key]?.toString() ?? ''),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controllersMap?.forEach((_, c) => c.dispose());
+    super.dispose();
+  }
   
   double _riskScore = 0.0;
-  bool _isHealthy = true;
+  // 'healthy' | 'risk' | 'unhealthy'
+  String _statusLevel = 'healthy';
+  String _riskDescription = '';
 
   // Defaults for each disease to satisfy FastAPI's strict validation
   static const Map<String, dynamic> _diabetesDefaults = {
@@ -62,15 +82,117 @@ class _AiAgentPageState extends State<AiAgentPage> {
     'Kidney Disease': {'Accuracy': '98.2%', 'Precision': '97.9%', 'Recall': '98.5%', 'F1-Score': '98.2%'},
   };
 
+  // ── Calibrated presets — tuned so each tier reliably hits its probability band
+  // Healthy < 30% prob  |  At Risk 30–60%  |  Unhealthy > 60%
+  static const Map<String, Map<String, Map<String, dynamic>>> _presets = {
+    'Diabetes': {
+      // Target: prob < 30%  (clearly non-diabetic markers)
+      'healthy': {
+        'HbA1c_level': 4.5, 'blood_glucose_level': 82.0, 'age': 25.0,
+        'bmi': 21.0, 'smoking_history': 'never', 'hypertension': 0,
+        'gender': 'Female', 'heart_disease': 0,
+      },
+      // Target: prob 30–60% (borderline pre-diabetic)
+      'risk': {
+        'HbA1c_level': 6.2, 'blood_glucose_level': 130.0, 'age': 45.0,
+        'bmi': 28.0, 'smoking_history': 'never', 'hypertension': 0,
+        'gender': 'Male', 'heart_disease': 0,
+      },
+      // Target: prob > 60% (clearly diabetic)
+      'unhealthy': {
+        'HbA1c_level': 9.5, 'blood_glucose_level': 240.0, 'age': 58.0,
+        'bmi': 36.0, 'smoking_history': 'current', 'hypertension': 1,
+        'gender': 'Male', 'heart_disease': 1,
+      },
+    },
+    'Kidney Disease': {
+      // Target: prob < 30% (healthy markers)
+      'healthy': {
+        'age': 32.0, 'bp': 68.0, 'sg': 1.022, 'al': '0', 'su': '0',
+        'rbc': 'normal', 'pc': 'normal', 'pcc': 'notpresent', 'ba': 'notpresent',
+        'bgr': 88.0, 'bu': 18.0, 'sc': 0.8, 'sod': 141.0, 'pot': 4.1,
+        'hemo': 15.5, 'pcv': 45.0, 'wc': 7200.0, 'rc': 5.3,
+        'htn': 'no', 'dm': 'no', 'cad': 'no', 'appet': 'good', 'pe': 'no', 'ane': 'no',
+      },
+      // Target: prob 30–60% (borderline indicators)
+      'risk': {
+        'age': 60.0, 'bp': 85.0, 'sg': 1.020, 'al': '0', 'su': '0',
+        'rbc': 'normal', 'pc': 'normal', 'pcc': 'notpresent', 'ba': 'notpresent',
+        'bgr': 120.0, 'bu': 35.0, 'sc': 1.1, 'sod': 137.0, 'pot': 4.3,
+        'hemo': 14.0, 'pcv': 41.0, 'wc': 8200.0, 'rc': 4.9,
+        'htn': 'no', 'dm': 'no', 'cad': 'no', 'appet': 'good', 'pe': 'no', 'ane': 'no',
+      },
+      // Target: prob > 60% (severe CKD)
+      'unhealthy': {
+        'age': 70.0, 'bp': 120.0, 'sg': 1.005, 'al': '5', 'su': '5',
+        'rbc': 'abnormal', 'pc': 'abnormal', 'pcc': 'present', 'ba': 'present',
+        'bgr': 480.0, 'bu': 150.0, 'sc': 15.0, 'sod': 108.0, 'pot': 7.0,
+        'hemo': 6.0, 'pcv': 20.0, 'wc': 14000.0, 'rc': 2.3,
+        'htn': 'yes', 'dm': 'yes', 'cad': 'yes', 'appet': 'poor', 'pe': 'yes', 'ane': 'yes',
+      },
+    },
+    'Heart Disease': {
+      // Target: prob < 30% (healthy)
+      'healthy': {
+        'HadAngina': 'No', 'ChestScan': 'No', 'HadStroke': 'No',
+        'DifficultyWalking': 'No', 'HadDiabetes': 'No', 'GeneralHealth': 'Excellent',
+        'HadArthritis': 'No', 'PneumoVaxEver': 'No', 'RemovedTeeth': 'None of them',
+        'AgeCategory': 'Age 25 to 29', 'SmokerStatus': 'Never smoked',
+        'BMI': 21.5, 'HadKidneyDisease': 'No', 'HadCOPD': 'No',
+      },
+      // Target: prob 30–60% (significant risk factors)
+      'risk': {
+        'HadAngina': 'Yes', 'ChestScan': 'Yes', 'HadStroke': 'No',
+        'DifficultyWalking': 'No', 'HadDiabetes': 'Yes', 'GeneralHealth': 'Fair',
+        'HadArthritis': 'Yes', 'PneumoVaxEver': 'No', 'RemovedTeeth': '1 to 5',
+        'AgeCategory': 'Age 65 to 69', 'SmokerStatus': 'Former smoker',
+        'BMI': 32.0, 'HadKidneyDisease': 'No', 'HadCOPD': 'No',
+      },
+      // Target: prob > 60%  (angina + stroke + all major comorbidities)
+      'unhealthy': {
+        'HadAngina': 'Yes', 'ChestScan': 'Yes', 'HadStroke': 'Yes',
+        'DifficultyWalking': 'Yes', 'HadDiabetes': 'Yes', 'GeneralHealth': 'Poor',
+        'HadArthritis': 'Yes', 'PneumoVaxEver': 'Yes', 'RemovedTeeth': 'All',
+        'AgeCategory': 'Age 80 or older',
+        'SmokerStatus': 'Current smoker - now smokes every day',
+        'BMI': 38.0, 'HadKidneyDisease': 'Yes', 'HadCOPD': 'Yes',
+      },
+    },
+  };
+
   bool _isAnalyzing = false;
 
   void _onDiseaseSelect(String disease) {
+    // Dispose & clear old controllers when disease changes
+    _controllersMap?.forEach((_, c) => c.dispose());
+    _controllersMap = {};
     setState(() {
       _selectedDisease = disease;
       _currentStep = 1;
       _inputs.clear();
-      // Initialize with defaults if needed
     });
+  }
+
+  /// Fill all form fields from a preset (Healthy / At Risk / Unhealthy)
+  void _applyPreset(String level) {
+    final preset = _presets[_selectedDisease]?[level];
+    if (preset == null) return;
+    // Reset controllers
+    _controllersMap?.forEach((_, c) => c.dispose());
+    _controllersMap = {};
+    setState(() {
+      _inputs
+        ..clear()
+        ..addAll(preset);
+    });
+    // Sync text controllers for numeric fields
+    for (final entry in preset.entries) {
+      if (entry.value is num) {
+        final v = entry.value as num;
+        _getController(entry.key).text =
+            v == v.truncate() ? v.toInt().toString() : v.toString();
+      }
+    }
   }
 
   Future<void> _analyzeResults() async {
@@ -96,9 +218,25 @@ class _AiAgentPageState extends State<AiAgentPage> {
 
       if (result != null) {
         setState(() {
-          // Response format: { "prediction": 0/1, "probability": 0.XX, "risk_level": "..." }
-          _riskScore = ((result['probability'] ?? 0.0) * 100).toDouble();
-          _isHealthy = (result['prediction'] == 0);
+          final prediction = (result['prediction'] as num?)?.toInt() ?? 0;
+          final prob = ((result['probability'] as num?) ?? 0.0).toDouble();
+          _riskScore = prob * 100;
+          _riskDescription = result['risk_description'] ?? '';
+
+          // Probability-based 3-tier classification:
+          // Healthy    → prob < 30%   (low disease probability)
+          // At Risk    → prob 30–60%  (moderate / borderline zone)
+          // Unhealthy  → prob > 60%   (high disease probability)
+          //
+          // NOTE: We use probability alone (not prediction label) so the
+          // thresholds stay consistent across all three disease models.
+          if (prob < 0.30) {
+            _statusLevel = 'healthy';
+          } else if (prob >= 0.60) {
+            _statusLevel = 'unhealthy';
+          } else {
+            _statusLevel = 'risk'; // 30–60% borderline zone
+          }
           _currentStep = 2;
         });
       } else {
@@ -120,17 +258,57 @@ class _AiAgentPageState extends State<AiAgentPage> {
   }
 
   String _getRiskLabel(double score) {
-    if (score <= 25) return 'Low Risk';
-    if (score <= 50) return 'Moderate Risk';
-    if (score <= 75) return 'High Risk';
-    return 'Very High Risk';
+    if (score < 30) return 'Low Risk';
+    if (score < 60) return 'Moderate Risk';
+    if (score < 85) return 'High Risk';
+    return 'Critical Risk';
   }
 
   Color _getRiskColor(double score) {
-    if (score <= 25) return Colors.green;
-    if (score <= 50) return Colors.orange;
-    if (score <= 75) return Colors.redAccent;
+    if (score < 30) return Colors.green;
+    if (score < 60) return Colors.orange;
+    if (score < 85) return Colors.redAccent;
     return Colors.red;
+  }
+
+  // ── 3-state helpers ──────────────────────────────────────────────────────
+  Color get _statusColor {
+    if (_statusLevel == 'healthy') return const Color(0xFF22C55E);
+    if (_statusLevel == 'risk')    return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
+  }
+
+  IconData get _statusIcon {
+    if (_statusLevel == 'healthy') return Icons.check_circle_rounded;
+    if (_statusLevel == 'risk')    return Icons.warning_amber_rounded;
+    return Icons.dangerous_rounded;
+  }
+
+  String get _statusTitle {
+    if (_statusLevel == 'healthy') return 'HEALTHY';
+    if (_statusLevel == 'risk')    return 'AT RISK';
+    return 'UNHEALTHY';
+  }
+
+  String get _statusSubtitle {
+    if (_statusLevel == 'healthy') return "You're in good health! Keep it up.";
+    if (_statusLevel == 'risk')    return 'Some risk factors detected. Monitor closely.';
+    return 'Disease indicators found. Please consult a doctor.';
+  }
+
+  // Demo helper – jump to result with a preset state (for testing)
+  void _loadDemoResult(String level) {
+    setState(() {
+      _statusLevel = level;
+      _riskScore   = level == 'healthy' ? 18 : (level == 'risk' ? 45 : 82);
+      _riskDescription = level == 'healthy'
+          ? 'No significant indicators detected.'
+          : level == 'risk'
+              ? 'Some risk factors present. Consider seeing a doctor.'
+              : 'Strong disease indicators. Please see a doctor immediately.';
+      _selectedDisease = 'Diabetes';
+      _currentStep = 2;
+    });
   }
 
   @override
@@ -178,7 +356,43 @@ class _AiAgentPageState extends State<AiAgentPage> {
         _selectionCard('Diabetes', Icons.water_drop_outlined, 'Analyze glucose and metabolic factors.'),
         _selectionCard('Heart Disease', Icons.favorite_outline, 'Predict cardiac health based on vitals.'),
         _selectionCard('Kidney Disease', Icons.opacity_outlined, 'Evaluate renal function and markers.'),
+        const SizedBox(height: 32),
+        // ── Demo / Test Row ─────────────────────────────────────────────
+        Text('Test All 3 Outputs', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: subTextColor)),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            _demoBtn('Healthy',   'healthy',   const Color(0xFF22C55E), Icons.check_circle_rounded),
+            const SizedBox(width: 10),
+            _demoBtn('At Risk',   'risk',      const Color(0xFFF59E0B), Icons.warning_amber_rounded),
+            const SizedBox(width: 10),
+            _demoBtn('Unhealthy', 'unhealthy', const Color(0xFFEF4444), Icons.dangerous_rounded),
+          ],
+        ),
       ],
+    );
+  }
+
+  Widget _demoBtn(String label, String level, Color color, IconData icon) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _loadDemoResult(level),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withOpacity(0.4)),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 24),
+              const SizedBox(height: 6),
+              Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -229,7 +443,9 @@ class _AiAgentPageState extends State<AiAgentPage> {
       padding: const EdgeInsets.all(24),
       children: [
         _buildStepHeader('Prediction Inputs'),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
+        _buildPresetSelector(),
+        const SizedBox(height: 20),
         _buildMetricsCard(),
         const SizedBox(height: 32),
         if (_selectedDisease == 'Heart Disease') ..._buildHeartInputs(),
@@ -240,14 +456,16 @@ class _AiAgentPageState extends State<AiAgentPage> {
           width: double.infinity,
           height: 60,
           child: ElevatedButton(
-            onPressed: _analyzeResults,
+            onPressed: _isAnalyzing ? null : _analyzeResults,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF00AACD),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               elevation: 0,
             ),
-            child: const Text('Generate Prediction', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            child: _isAnalyzing
+                ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Text('Generate Prediction', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ),
         ),
         const SizedBox(height: 100),
@@ -364,7 +582,7 @@ class _AiAgentPageState extends State<AiAgentPage> {
   }
 
   Widget _buildDropdown(String label, String key, List<String> options) {
-    String? value = _inputs[key];
+    String? value = _inputs[key]?.toString();
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -377,7 +595,7 @@ class _AiAgentPageState extends State<AiAgentPage> {
             decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderColor)),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: value,
+                value: (value != null && options.contains(value)) ? value : null,
                 isExpanded: true,
                 hint: const Text('Select Option', style: TextStyle(fontSize: 14)),
                 items: options.map((o) => DropdownMenuItem(value: o, child: Text(o))).toList(),
@@ -391,6 +609,7 @@ class _AiAgentPageState extends State<AiAgentPage> {
   }
 
   Widget _buildTextField(String label, String key, String range) {
+    final controller = _getController(key);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -399,17 +618,21 @@ class _AiAgentPageState extends State<AiAgentPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
-              if (range.isNotEmpty) Text(range, style: const TextStyle(fontSize: 11, color: Color(0xFF00AACD), fontWeight: FontWeight.w500)),
+              Expanded(child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF334155)))),
+              if (range.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Text(range, style: const TextStyle(fontSize: 11, color: Color(0xFF00AACD), fontWeight: FontWeight.w500)),
+              ],
             ],
           ),
           const SizedBox(height: 8),
           TextField(
-            keyboardType: TextInputType.number,
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             onChanged: (val) {
-              setState(() {
-                _inputs[key] = double.tryParse(val) ?? 0.0;
-              });
+              // Store parsed value; keep controller text as-is so cursor stays
+              final parsed = double.tryParse(val);
+              if (parsed != null) _inputs[key] = parsed;
             },
             decoration: InputDecoration(
               hintText: 'Enter value',
@@ -417,10 +640,69 @@ class _AiAgentPageState extends State<AiAgentPage> {
               fillColor: cardColor,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: borderColor)),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: borderColor)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF00AACD), width: 1.5)),
               contentPadding: const EdgeInsets.all(18),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPresetSelector() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_fix_high_rounded, color: const Color(0xFF00AACD), size: 16),
+              const SizedBox(width: 6),
+              Text('Quick Fill Preset', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
+              const SizedBox(width: 4),
+              Text('(auto-fills all fields)', style: TextStyle(fontSize: 11, color: subTextColor)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _presetBtn('Healthy',   'healthy',   const Color(0xFF22C55E), Icons.check_circle_rounded),
+              const SizedBox(width: 8),
+              _presetBtn('At Risk',   'risk',      const Color(0xFFF59E0B), Icons.warning_amber_rounded),
+              const SizedBox(width: 8),
+              _presetBtn('Unhealthy', 'unhealthy', const Color(0xFFEF4444), Icons.dangerous_rounded),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _presetBtn(String label, String level, Color color, IconData icon) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _applyPreset(level),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: color.withOpacity(0.35)),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(height: 4),
+              Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -461,42 +743,96 @@ class _AiAgentPageState extends State<AiAgentPage> {
 
   Widget _buildResultStep() {
     final riskLabel = _getRiskLabel(_riskScore);
-    final riskColor = _getRiskColor(_riskScore);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
           _buildStepHeader('Prediction Result'),
-          const SizedBox(height: 40),
+          const SizedBox(height: 32),
+
+          // ── Status Banner ───────────────────────────────────────────────
           Container(
-            padding: const EdgeInsets.all(40),
+            width: double.infinity,
+            padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: cardColor,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(color: riskColor.withOpacity(0.1), blurRadius: 40, spreadRadius: 10),
-              ],
+              gradient: LinearGradient(
+                colors: [_statusColor.withOpacity(0.15), _statusColor.withOpacity(0.03)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(color: _statusColor.withOpacity(0.35), width: 1.5),
+              boxShadow: [BoxShadow(color: _statusColor.withOpacity(0.15), blurRadius: 30, spreadRadius: 2)],
             ),
             child: Column(
               children: [
+                // Icon circle
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: _statusColor.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: _statusColor.withOpacity(0.4), width: 2),
+                  ),
+                  child: Icon(_statusIcon, color: _statusColor, size: 48),
+                ),
+                const SizedBox(height: 20),
+                // Status title
                 Text(
-                  _isHealthy ? 'HEALTHY' : 'UNHEALTHY',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: riskColor, letterSpacing: 2),
+                  _statusTitle,
+                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: _statusColor, letterSpacing: 3),
                 ),
                 const SizedBox(height: 8),
+                // Probability
                 Text(
-                  '${_riskScore.toInt()}%',
-                  style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: textColor),
+                  '${_riskScore.toInt()}% probability',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor),
                 ),
+                const SizedBox(height: 4),
+                // Risk label badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _statusColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(riskLabel, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _statusColor)),
+                ),
+                const SizedBox(height: 16),
+                // Subtitle
                 Text(
-                  riskLabel,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: riskColor.withOpacity(0.8)),
+                  _statusSubtitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: subTextColor, height: 1.5),
                 ),
+                if (_riskDescription.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _riskDescription,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: subTextColor.withOpacity(0.7), fontStyle: FontStyle.italic),
+                  ),
+                ],
               ],
             ),
           ),
-          const SizedBox(height: 40),
+
+          const SizedBox(height: 24),
+
+          // ── Three-state summary chips ───────────────────────────────────
+          Row(
+            children: [
+              _statChip('Healthy',   'healthy',   const Color(0xFF22C55E), Icons.check_circle_rounded),
+              const SizedBox(width: 8),
+              _statChip('At Risk',   'risk',      const Color(0xFFF59E0B), Icons.warning_amber_rounded),
+              const SizedBox(width: 8),
+              _statChip('Unhealthy', 'unhealthy', const Color(0xFFEF4444), Icons.dangerous_rounded),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
           if (_inputs.isNotEmpty) ...[
             _buildProvidedInputsSummary(),
             const SizedBox(height: 20),
@@ -536,7 +872,33 @@ class _AiAgentPageState extends State<AiAgentPage> {
               ),
             ],
           ),
+          const SizedBox(height: 40),
         ],
+      ),
+    );
+  }
+
+  Widget _statChip(String label, String level, Color color, IconData icon) {
+    final isActive = _statusLevel == level;
+    return Expanded(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isActive ? color.withOpacity(0.15) : cardColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isActive ? color : borderColor,
+            width: isActive ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: isActive ? color : subTextColor, size: 20),
+            const SizedBox(height: 4),
+            Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isActive ? color : subTextColor)),
+          ],
+        ),
       ),
     );
   }
@@ -550,12 +912,13 @@ class _AiAgentPageState extends State<AiAgentPage> {
 
     healixStore.addRecord({
       'id': DateTime.now().millisecondsSinceEpoch.toString(),
-      'title': '$_selectedDisease Risk: $riskLabel (${_riskScore.toInt()}%)',
+      'title': '$_selectedDisease: ${_statusTitle} (${_riskScore.toInt()}%)',
       'date': dateStr,
       'type': 'AI Prediction',
-      'status': 'Complete',
+      'status': _statusTitle,
       'isAi': true,
       'riskScore': _riskScore.toInt(),
+      'statusLevel': _statusLevel,
       'inputs': Map<String, dynamic>.from(_inputs),
       'disease': _selectedDisease,
     });

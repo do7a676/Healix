@@ -73,11 +73,18 @@ def preprocess(raw: dict, disease: str) -> pd.DataFrame:
 
 
 def classify_risk(prob: float) -> tuple[str, str]:
-    """Map probability → (risk_level_key, description)."""
-    if prob < 0.20:
-        return "low",      "No significant indicators detected."
-    if prob < 0.50:
+    """Map probability → (risk_level_key, human-readable description).
+
+    Bands are intentionally aligned with the Flutter UI thresholds:
+      low       → prob < 0.30   (Flutter shows HEALTHY)
+      moderate  → prob 0.30–0.60 (Flutter shows AT RISK)
+      high      → prob 0.60–0.85 (Flutter shows UNHEALTHY)
+      very_high → prob ≥ 0.85   (Flutter shows UNHEALTHY – critical)
+    """
+    if prob < 0.30:
+        return "low",      "No significant disease indicators detected."
+    if prob < 0.60:
         return "moderate", "Some risk factors present. Consider seeing a doctor."
-    if prob < 0.80:
-        return "high",     "Multiple risk factors found. Please see a doctor."
-    return   "very_high",  "Strong disease indicators. Please see a doctor immediately."
+    if prob < 0.85:
+        return "high",     "Multiple risk factors found. Please see a doctor soon."
+    return   "very_high",  "Strong disease indicators detected. Please see a doctor immediately."
