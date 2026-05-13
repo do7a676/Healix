@@ -105,7 +105,8 @@ using (var scope = app.Services.CreateScope())
     await dbContext.Database.EnsureCreatedAsync();
 
     await Seed.SeedRolesAsync(roleManager);
-    await Seed.SeedAdminAsync(userManager);
+    // await Seed.SeedAdminAsync(userManager);
+    await Seed.SeedDemoUsersAsync(userManager, dbContext);
 }
 
 //// Configure the HTTP request pipeline.

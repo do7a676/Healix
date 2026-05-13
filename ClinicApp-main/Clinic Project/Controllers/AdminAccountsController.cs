@@ -1,4 +1,4 @@
-﻿using Clinic_Project.Dtos.Account;
+using Clinic_Project.Dtos.Account;
 using Clinic_Project.Helpers;
 using Clinic_Project.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -25,12 +25,14 @@ namespace Clinic_Project.Controllers
             return !result.Success ? BadRequest(result.ErrorMessage) : Ok(result.Data);
         }
 
+/*
         [HttpPost("admins")]
         public async Task<IActionResult> AddAdmin(AddAdminDto dto)
         {
             var result = await _adminAccountService.AddAdminAsync(dto);
             return !result.Success ? BadRequest(result.ErrorMessage) : Ok(new { Message = "Admin Added Successfully" });
         }
+*/
 
         [HttpPost("doctors")]
         public async Task<IActionResult> AddDoctor(RegisterDto dto)

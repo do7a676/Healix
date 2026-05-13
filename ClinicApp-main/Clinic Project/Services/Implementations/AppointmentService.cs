@@ -53,9 +53,9 @@ namespace Clinic_Project.Services.Implementations
                 return ValidationResult.Fail($"Patient {dto.PatientId} doesn't exist", enErrorType.NotFound);
             }
 
-            if (await _unitOfWork.Doctors.IsExistAsync(p => p.Id == dto.DoctorId))
+            if (!await _unitOfWork.Doctors.IsExistAsync(p => p.Id == dto.DoctorId))
             {
-                return ValidationResult.Fail("Doctor already exists for this appointment", enErrorType.Conflict);
+                return ValidationResult.Fail($"Doctor {dto.DoctorId} doesn't exist", enErrorType.NotFound);
             }
 
             return ValidationResult.Success();

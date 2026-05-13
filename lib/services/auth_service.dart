@@ -26,7 +26,8 @@ class AuthService {
     required String role,
   }) async {
     try {
-      // Removed mock bypass for testing
+      // All logins now go through the real backend.
+      // Demo accounts seeded: patient@demo.com / Demo@123  |  doctor@demo.com / Demo@123
       
       final response = await _api.post('/accounts/login', data: {
         'userNameOrEmail': email,
